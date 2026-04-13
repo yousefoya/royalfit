@@ -1,0 +1,455 @@
+============- 1) users table -============
+
+CREATE DATABASE IF NOT EXISTS royal_fitness
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+USE royal_fitness;
+
+
+============- 2) users table -============
+
+CREATE TABLE users (
+  name VARCHAR(100) NOT NULL,
+  phone VARCHAR(15) NOT NULL,
+  role ENUM('admin','trainer','member') NOT NULL,
+  avatar VARCHAR(255) DEFAULT 'https://i.pinimg.com/736x/2f/15/f2/2f15f2e8c688b3120d3d26467b06330c.jpg',
+  trainer_id VARCHAR(36) DEFAULT NULL,
+  subscription_end_date DATETIME DEFAULT NULL,
+  schedule_status ENUM('pending','in_progress','completed','need_update') DEFAULT NULL,
+  schedule_last_updated DATETIME DEFAULT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (id),
+  UNIQUE KEY phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+============- 3) messages table -============
+
+CREATE TABLE messages (
+  id INT(11) NOT NULL AUTO_INCREMENT,
+  sender_id VARCHAR(36) NOT NULL,
+  receiver_id VARCHAR(36) NOT NULL,
+  text TEXT NOT NULL,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+============- 4) schedules table -============
+
+CREATE TABLE schedules (
+  client_id INT(10) UNSIGNED NOT NULL,
+  schedule_text TEXT DEFAULT NULL,
+  PRIMARY KEY (client_id),
+  CONSTRAINT fk_schedules_client
+    FOREIGN KEY (client_id) REFERENCES users(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+============- 5) Avatar generator -============
+
+ALTER TABLE users
+MODIFY avatar VARCHAR(255) NOT NULL
+DEFAULT 'https://i.pinimg.com/736x/2f/15/f2/2f15f2e8c688b3120d3d26467b06330c.jpg';
+
+
+
+============- 5) ID BIGINT -============
+Step 1:
+ALTER TABLE users
+MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT;
+
+
+Step 2:
+ALTER TABLE schedules
+DROP FOREIGN KEY schedules_ibfk_1;
+
+Step 3:
+ALTER TABLE users
+MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT;
+
+Step 4:
+ALTER TABLE schedules
+MODIFY client_id BIGINT UNSIGNED NOT NULL;
+
+Step 5:
+ALTER TABLE schedules
+ADD CONSTRAINT schedules_ibfk_1
+FOREIGN KEY (client_id)
+REFERENCES users(id)
+ON DELETE CASCADE
+ON UPDATE CASCADE;
+
+
+============- 6) Add trainer_id and updated_at columns -============
+ALTER TABLE schedules
+ADD COLUMN trainer_id BIGINT UNSIGNED NOT NULL AFTER client_id,
+ADD COLUMN updated_at DATETIME NOT NULL
+  DEFAULT CURRENT_TIMESTAMP
+  ON UPDATE CURRENT_TIMESTAMP;
+
+============-         -============
+============- Phase 2 -============
+============-         -============
+
+============- 1) Create nutrition_templates  -============
+
+
+CREATE TABLE nutrition_templates (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  goal ENUM('bulk','gain','fat_loss') NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+); 
+
+
+============- 2) Create nutrition_meals  -============
+
+
+CREATE TABLE nutrition_meals (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  template_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  time VARCHAR(50),
+  calories INT,
+  protein INT,
+  carbs INT,
+  fats INT,
+  FOREIGN KEY (template_id)
+    REFERENCES nutrition_templates(id)
+    ON DELETE CASCADE
+);
+
+============- 3) Create nutrition_ingredients  -============
+
+
+CREATE TABLE nutrition_ingredients (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  meal_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(100),
+  amount VARCHAR(50),
+  FOREIGN KEY (meal_id)
+    REFERENCES nutrition_meals(id)
+    ON DELETE CASCADE
+);
+
+
+============- 4) Create user_nutrition_plans  -============
+
+
+CREATE TABLE user_nutrition_plans (
+  user_id BIGINT UNSIGNED PRIMARY KEY,
+  template_id BIGINT UNSIGNED NOT NULL,
+  assigned_by BIGINT UNSIGNED,
+  assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (template_id) REFERENCES nutrition_templates(id),
+  FOREIGN KEY (assigned_by) REFERENCES users(id)
+);
+
+
+============- 5) Create challenge_submissions  -============
+CREATE TABLE challenge_submissions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+
+  user_id INT NOT NULL,
+  challenge_id INT NOT NULL,
+  day INT NOT NULL,
+
+  video_url VARCHAR(255) NOT NULL,
+
+  status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+
+  submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at DATETIME NULL,
+
+  UNIQUE KEY unique_submission (user_id, challenge_id, day)
+);
+
+============- 6) Create challenges  -============
+CREATE TABLE challenges (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  type ENUM('VIDEO','IMAGE','TEXT') NOT NULL DEFAULT 'VIDEO',
+  duration_days INT NOT NULL,
+  total_points INT NOT NULL,
+  start_date DATE NULL,
+  status ENUM('ACTIVE','EXPIRED') NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+
+============- 7) Modify challenge_submissions user_id to BIGINT -============
+ALTER TABLE challenge_submissions
+MODIFY user_id BIGINT UNSIGNED NOT NULL;
+
+============- 8) Modify challenges id to BIGINT -============
+
+ALTER TABLE nutrition_templates
+CONVERT TO CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+
+============- 9) Modify challenges id to BIGINT -============
+
+ALTER TABLE nutrition_templates
+CONVERT TO CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+ALTER TABLE nutrition_meals
+CONVERT TO CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+ALTER TABLE nutrition_ingredients
+CONVERT TO CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+
+
+============- 9) Modify users Table-============
+
+ALTER TABLE users 
+MODIFY role ENUM('admin','trainer','member','reception') NOT NULL;
+
+
+
+============- 9) Create training_exercises_library Table-============
+
+CREATE TABLE training_exercises_library (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  muscle_group VARCHAR(100) NOT NULL,
+  description TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+============- 10) Create training_templates Table-============
+
+CREATE TABLE training_templates (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+============- 11) Create training_template_exercises Table-============
+
+CREATE TABLE training_template_days (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  template_id BIGINT UNSIGNED NOT NULL,
+  day_name ENUM(
+    'Sunday','Monday','Tuesday',
+    'Wednesday','Thursday','Friday','Saturday'
+  ) NOT NULL,
+  FOREIGN KEY (template_id)
+    REFERENCES training_templates(id)
+    ON DELETE CASCADE
+);
+
+
+============- 12) Create training_template_day_exercises Table-============
+CREATE TABLE training_template_day_exercises (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  day_id BIGINT UNSIGNED NOT NULL,
+  exercise_id BIGINT UNSIGNED NOT NULL,
+  sets INT DEFAULT 3,
+  reps INT DEFAULT 12,
+  notes VARCHAR(255),
+
+  FOREIGN KEY (day_id)
+    REFERENCES training_template_days(id)
+    ON DELETE CASCADE,
+
+  FOREIGN KEY (exercise_id)
+    REFERENCES training_exercises_library(id)
+    ON DELETE CASCADE
+);
+
+
+============- 13) Create user_training_plans Table-============
+
+CREATE TABLE user_training_plans (
+  user_id BIGINT UNSIGNED PRIMARY KEY,
+  template_id BIGINT UNSIGNED NOT NULL,
+  assigned_by BIGINT UNSIGNED,
+  status ENUM('pending','completed','need_update') DEFAULT 'pending',
+  assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (template_id) REFERENCES training_templates(id),
+  FOREIGN KEY (assigned_by) REFERENCES users(id)
+);
+
+
+
+============- 14) Create exercises_library Table-============
+
+CREATE TABLE exercises_library (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  muscle_group VARCHAR(100) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+============- 15) Add unique constraint to exercises_library -============
+ALTER TABLE exercises_library
+ADD UNIQUE KEY unique_exercise (name, muscle_group);
+
+
+
+============- 16) Insert initial exercises into exercises_library -============
+
+INSERT INTO exercises_library (name, muscle_group) VALUES
+
+-- ================= عضلات الظهر =================
+('سحب أمامي واسع','عضلات الظهر'),
+('سحب أمامي واسع عكسي','عضلات الظهر'),
+('سحب ضيق قبضة ضيقة','عضلات الظهر'),
+('سحب جالس قبضة ضيقة','عضلات الظهر'),
+('سحب جالس قبضة واسعة','عضلات الظهر'),
+('سحب منشار ضيق','عضلات الظهر'),
+('سحب منشار واسع','عضلات الظهر'),
+('سحب همر عكسي','عضلات الظهر'),
+('سحب همر أمامي','عضلات الظهر'),
+('جهاز رقم (7) همر','عضلات الظهر'),
+('جهاز رقم (7) أمامي','عضلات الظهر'),
+('جهاز رقم (7) عكسي','عضلات الظهر'),
+('جهاز رقم (6) ضيق','عضلات الظهر'),
+('جهاز رقم (6) واسع','عضلات الظهر'),
+('كابل منحنى واسع','عضلات الظهر'),
+('واسع TBAR','عضلات الظهر'),
+('ضيق TBAR','عضلات الظهر'),
+('منشار دامبلز','عضلات الظهر'),
+('أوفر لاس','عضلات الظهر'),
+('بار أمامي منحني','عضلات الظهر'),
+('بار عكسي منحني','عضلات الظهر'),
+
+-- ================= عضلات الصدر =================
+('جهاز رقم (1) علوي','عضلات الصدر'),
+('جهاز رقم (1) ضيق','عضلات الصدر'),
+('جهاز رقم (1) سفلي','عضلات الصدر'),
+('جهاز رقم (2)','عضلات الصدر'),
+('جهاز رقم (3) علوي','عضلات الصدر'),
+('جهاز رقم (3) سفلي','عضلات الصدر'),
+('كابل تجميع مستوي','عضلات الصدر'),
+('كابل تجميع علوي','عضلات الصدر'),
+('كابل تجميع سفلي','عضلات الصدر'),
+('همر علوي','عضلات الصدر'),
+('همر سفلي','عضلات الصدر'),
+('همر مستوي','عضلات الصدر'),
+('بار مستوي','عضلات الصدر'),
+('بار علوي','عضلات الصدر'),
+('بار سفلي','عضلات الصدر'),
+('Smith علوي','عضلات الصدر'),
+('Smith مستوي','عضلات الصدر'),
+('Smith سفلي','عضلات الصدر'),
+('ضغط دامبلز مستوي','عضلات الصدر'),
+('ضغط دامبلز علوي','عضلات الصدر'),
+('ضغط دامبلز سفلي','عضلات الصدر'),
+('متوازي','عضلات الصدر'),
+('فتح دامبلز علوي','عضلات الصدر'),
+('فتح دامبلز مستوي','عضلات الصدر'),
+
+-- ================= عضلات الأكتاف =================
+('همر جانبي','عضلات الأكتاف'),
+('جهاز أكتاف ضيق','عضلات الأكتاف'),
+('جهاز أكتاف واسع','عضلات الأكتاف'),
+('فلاي دامبلز جانبي','عضلات الأكتاف'),
+('تبادل دامبلز أمامي','عضلات الأكتاف'),
+('جهاز (2) خلفي قبضة سفلية','عضلات الأكتاف'),
+('جهاز (2) خلفي','عضلات الأكتاف'),
+('حبل خلفي كابل','عضلات الأكتاف'),
+('فلاي جانبي كابل','عضلات الأكتاف'),
+('حبل كابل أمامي','عضلات الأكتاف'),
+('ترابيس دامبلز','عضلات الأكتاف'),
+('ترابيس بار','عضلات الأكتاف'),
+('ترابيس كابل','عضلات الأكتاف'),
+('ضغط جانبي جالس','عضلات الأكتاف'),
+('أرنولد جالس','عضلات الأكتاف'),
+('أمامي بار','عضلات الأكتاف'),
+('ضغط أمامي جالس','عضلات الأكتاف'),
+('منحني دامبلز خلفي','عضلات الأكتاف'),
+('أمامي Smith','عضلات الأكتاف'),
+
+-- ================= عضلات الأرجل =================
+('جهاز رقم (9)','عضلات الأرجل'),
+('جهاز رقم (10)','عضلات الأرجل'),
+('جهاز رقم (8)','عضلات الأرجل'),
+('جهاز iner + outer','عضلات الأرجل'),
+('جهاز دفع خلفي','عضلات الأرجل'),
+('جهاز رقم (13)','عضلات الأرجل'),
+('Hack squat','عضلات الأرجل'),
+('همر دفع','عضلات الأرجل'),
+('همر بطات','عضلات الأرجل'),
+('سكوات Smith','عضلات الأرجل'),
+('سكوات دامبلز','عضلات الأرجل'),
+('طعن دامبلز','عضلات الأرجل'),
+('Hamstring BAR','عضلات الأرجل'),
+('SOMOSQUAT','عضلات الأرجل'),
+('Hipthrust BAR','عضلات الأرجل'),
+('Bulgarian دامبلز','عضلات الأرجل'),
+('Romanian Deadlift','عضلات الأرجل'),
+('Stiff Leg Deadlift','عضلات الأرجل'),
+
+-- ================= عضلات البايسيبس =================
+('همر جالس واسع','عضلات البايسيبس'),
+('لاري سكوت بار','عضلات البايسيبس'),
+('تبادل دامبلز','عضلات البايسيبس'),
+('همر دامبلز','عضلات البايسيبس'),
+('كابل حبل داخلي','عضلات البايسيبس'),
+('كابل حبل خارجي','عضلات البايسيبس'),
+('كابل مسكة (V)','عضلات البايسيبس'),
+('كابل مسطرة واسع','عضلات البايسيبس'),
+('كابل مسطرة ضيق','عضلات البايسيبس'),
+('تبادل دامبلز بنش 45 درجة','عضلات البايسيبس'),
+('بار أولمبي','عضلات البايسيبس'),
+('بار أعوج ضيق واقف','عضلات البايسيبس'),
+('بار مستقيم واسع واقف','عضلات البايسيبس'),
+('كابل قبضة فردي','عضلات البايسيبس'),
+('تكوير دامبلز','عضلات البايسيبس'),
+('بار ثلاث سبعات','عضلات البايسيبس'),
+
+-- ================= عضلات الترايسيبس =================
+('كابل مستقيم ضيق','عضلات الترايسيبس'),
+('كابل مستقيم واسع','عضلات الترايسيبس'),
+('كابل مستقيم مسكة (V)','عضلات الترايسيبس'),
+('كابل حبل داخلي','عضلات الترايسيبس'),
+('كابل حبل خارجي','عضلات الترايسيبس'),
+('كابل فردي','عضلات الترايسيبس'),
+('كابل فردي عكسي','عضلات الترايسيبس'),
+('كابل خلفي','عضلات الترايسيبس'),
+('دامبلز زوجي خلف الرأس','عضلات الترايسيبس'),
+('دامبلز فردي خلف الرأس','عضلات الترايسيبس'),
+('Kickback Dumbles','عضلات الترايسيبس'),
+('Kickback Cable','عضلات الترايسيبس'),
+('همر زوجي نائم','عضلات الترايسيبس'),
+('بار خلف الرأس','عضلات الترايسيبس'),
+
+-- ================= عضلات المعدة =================
+('كرانش (Crunches)','عضلات المعدة'),
+('رفع أرجل (Leg Raises)','عضلات المعدة'),
+('بلانك (Plank)','عضلات المعدة'),
+('عجلة (Ab Wheel)','عضلات المعدة'),
+('تويست روسي (Russian Twist)','عضلات المعدة'),
+
+-- ================= كارديو وإحماء =================
+('Treadmill','كارديو وإحماء'),
+('Cross','كارديو وإحماء'),
+('Bicycle','كارديو وإحماء'),
+('Steps','كارديو وإحماء'),
+('High knee','كارديو وإحماء'),
+('Jumping jacks','كارديو وإحماء'),
+('Burpee','كارديو وإحماء'),
+('Battle rope','كارديو وإحماء'),
+('Box jumps','كارديو وإحماء'),
+('Throw the ball','كارديو وإحماء');
