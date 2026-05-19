@@ -166,24 +166,25 @@ useEffect(() => {
 }, [nutritionTemplates]);
 
 const [editingClientIdForNutrition, setEditingClientIdForNutrition] = useState<string | null>(null);
-  useEffect(() => {
-    const storedUser = localStorage.getItem('royal_auth');
 
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
+useEffect(() => {
+  const storedUser = localStorage.getItem('royal_auth');
+  if (storedUser) {
+    try {
+      const user = JSON.parse(storedUser);
 
-        setAuth({
-          isAuthenticated: true,
-          user
-        });
-
-        setCurrentPage('dashboard');
-      } catch {
+      if (user.role === UserRole.MEMBER && isSubscriptionExpired(user.subscriptionEndDate)) {
         localStorage.removeItem('royal_auth');
+        return;
       }
+
+      setAuth({ isAuthenticated: true, user });
+      setCurrentPage('dashboard');
+    } catch {
+      localStorage.removeItem('royal_auth');
     }
-  }, []);
+  }
+}, []);
 
 useEffect(() => {
   fetch(`${API_BASE}/get_nutrition_templates.php`)
@@ -351,7 +352,7 @@ const isExerciseAdded = (exercise: string) => {
       const diffDays =
         (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24);
 
-      if (diffDays > 21) {
+      if (diffDays > 28) {
         return ScheduleStatus.NEED_UPDATE;
       }
     }
@@ -834,17 +835,24 @@ const openChat = (targetUserId: string) => {
     });
   };
 
-  const getFilteredMembersForTrainer = () => {
+const getFilteredMembersForTrainer = () => {
   if (!auth.user) return [];
 
-  return users.filter(u =>
-    u.role === UserRole.MEMBER &&
-    String(u.trainerId) === String(auth.user.id) && // 🔐 مهم
-    (
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.phone.includes(searchQuery)
-    )
-  );
+  return users.filter(u => {
+    if (u.role !== UserRole.MEMBER) return false;
+    if (String(u.trainerId) !== String(auth.user!.id)) return false;
+
+    // Hide expired subscriptions
+    if (isSubscriptionExpired(u.subscriptionEndDate)) return false;
+
+    const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.phone.includes(searchQuery);
+
+    const matchesStatus = scheduleStatusFilter === 'all' || 
+                         getUserScheduleStatus(u) === scheduleStatusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
 };
 
 
@@ -1021,132 +1029,122 @@ const status = getUserScheduleStatus(user);
     );
   };
 
-  const renderScheduleEditorPage = () => {
-     const client = users.find(u => u.id === editingClientId);
-     if (!client) return null;
+const renderScheduleEditorPage = () => {
+  const client = users.find(u => u.id === editingClientId);
+  if (!client) return null;
 
-     return (
-       <div className="container mx-auto px-4 py-8 min-h-screen">
-         <div className="flex items-center justify-between mb-8">
-           <div>
-              <button 
-                onClick={() => setCurrentPage('dashboard')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white mb-2 transition-colors"
+  return (
+    <div className="container mx-auto px-4 py-8 min-h-screen">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <button 
+            onClick={() => setCurrentPage('dashboard')}
+            className="flex items-center gap-2 text-gray-400 hover:text-white mb-2 transition-colors"
+          >
+            <ArrowRight size={18} />
+            <span>إلغاء وعودة</span>
+          </button>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Edit className="text-royal-500" />
+            تعديل البرنامج التدريبي
+          </h1>
+          <p className="text-gray-400 mt-1">المشترك: <span className="text-white font-bold">{client.name}</span></p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => setTempSchedule('')}
+            className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2"
+          >
+            <Trash2 size={20} /> Reset
+          </button>
+          <button 
+            onClick={handleSaveSchedule}
+            className="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2"
+          >
+            <Save size={20} />
+            حفظ البرنامج
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 h-full flex flex-col">
+        <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+          <ListFilter size={20} className="text-royal-500" />
+          اختيار التمارين
+        </h3>
+        
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+            {(Object.keys(workoutLibrary).length > 0
+              ? Object.keys(workoutLibrary)
+              : Object.keys(WORKOUT_DB)
+            ).map(muscle => (
+              <button
+                key={muscle}
+                onClick={() => setSelectedMuscle(muscle)}
+                className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-bold transition-all ${
+                  selectedMuscle === muscle
+                    ? 'bg-royal-600 text-white'
+                    : 'bg-black border border-zinc-700 text-gray-400 hover:bg-zinc-800'
+                }`}
               >
-                <ArrowRight size={18} />
-                <span>إلغاء وعودة</span>
+                {muscle}
               </button>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                <Edit className="text-royal-500" />
-                تعديل البرنامج التدريبي
-              </h1>
-              <p className="text-gray-400 mt-1">المشترك: <span className="text-white font-bold">{client.name}</span></p>
-           </div>
-           
-           <button 
-             onClick={handleSaveSchedule}
-             className="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-green-900/20"
-           >
-             <Save size={20} />
-             حفظ البرنامج
-           </button>
-         </div>
+            ))}
+          </div>
 
-         <div className="grid lg:grid-cols-3 gap-8">
-           <div className="lg:col-span-1 space-y-6">
-             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 h-full flex flex-col">
-               <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                 <ListFilter size={20} className="text-royal-500" />
-                 اختيار التمارين
-               </h3>
-               
-               <div className="flex-1 flex flex-col gap-4">
-                 <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                  {(Object.keys(workoutLibrary).length > 0
-                    ? Object.keys(workoutLibrary)
-                    : Object.keys(WORKOUT_DB)
-                  ).map(muscle => (
-                    <button
-                      key={muscle}
-                      onClick={() => setSelectedMuscle(muscle)}
-                      className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-bold transition-all ${
-                        selectedMuscle === muscle
-                          ? 'bg-royal-600 text-white'
-                          : 'bg-black border border-zinc-700 text-gray-400 hover:bg-zinc-800'
-                      }`}
-                    >
-                      {muscle}
-                    </button>
-                  ))}
+          {selectedMuscle && (
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 border-t border-zinc-800 pt-4">
+              {(workoutLibrary[selectedMuscle] || []).map((ex, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    if (isExerciseAdded(ex)) {
+                      setTempSchedule(prev =>
+                        prev
+                          .split('\n')
+                          .filter(line => !line.toLowerCase().includes(ex.toLowerCase()))
+                          .join('\n')
+                      );
+                    } else {
+                      toggleExerciseSelection(ex);
+                    }
+                  }}
+                  className={`
+                    p-3 rounded-lg border cursor-pointer transition-all
+                    flex items-center justify-between
+                    ${
+                      isExerciseAdded(ex)
+                        ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
+                        : selectedExercises.includes(ex)
+                          ? 'bg-royal-900/40 border-royal-500 text-white'
+                          : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:border-zinc-600'
+                    }
+                  `}
+                >
+                  <span className="text-sm">{ex}</span>
+                  {isExerciseAdded(ex) && (
+                    <span className="text-emerald-400 font-bold text-xs">✓ مضاف</span>
+                  )}
                 </div>
+              ))}
+            </div>
+          )}
 
-
-                 {selectedMuscle && (
-                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 border-t border-zinc-800 pt-4">
-                      {(workoutLibrary[selectedMuscle] || []).map((ex, idx) => (
-                       <div
-                        key={idx}
-                        onClick={() => toggleExerciseSelection(ex)}
-                        className={`
-                          p-3 rounded-lg border cursor-pointer transition-all
-                          flex items-center justify-between
-
-                          ${
-                            isExerciseAdded(ex)
-                              ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
-                              : selectedExercises.includes(ex)
-                                ? 'bg-royal-900/40 border-royal-500 text-white'
-                                : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:border-zinc-600'
-                          }
-                        `}
-                      >
-                        <span className="text-sm">{ex}</span>
-
-                        {isExerciseAdded(ex) && (
-                          <span className="text-emerald-400 font-bold text-xs">✓ مضاف</span>
-                        )}
-                      </div>
-
-                     ))}
-                   </div>
-                 )}
-
-                 <button 
-                   onClick={handleAddExercisesToSchedule}
-                   disabled={selectedExercises.length === 0}
-                   className="mt-auto w-full bg-zinc-800 hover:bg-royal-600 disabled:opacity-50 disabled:hover:bg-zinc-800 text-white py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-                 >
-                   <Plus size={18} />
-                   إضافة للمخطط ({selectedExercises.length})
-                 </button>
-               </div>
-             </div>
-           </div>
-
-           <div className="lg:col-span-2">
-             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6 h-full flex flex-col">
-               <div className="flex justify-between items-center mb-4">
-                 <h3 className="font-bold text-white flex items-center gap-2">
-                   <FileClock size={20} className="text-royal-500" />
-                   مخطط الأسبوع
-                 </h3>
-                 <span className="text-xs text-gray-500">يمكنك تعديل النص يدوياً</span>
-               </div>
-               
-               <textarea 
-                 value={tempSchedule}
-                 onChange={(e) => setTempSchedule(e.target.value)}
-                 className="flex-1 w-full bg-black border border-zinc-700 rounded-xl p-4 text-white font-mono leading-relaxed focus:ring-2 focus:ring-royal-500 outline-none resize-none"
-                 placeholder="قم باختيار التمارين من القائمة الجانبية أو اكتب هنا مباشرة..."
-                 style={{ minHeight: '500px' }}
-               />
-             </div>
-           </div>
-         </div>
-       </div>
-     );
-  };
-
+          <button 
+            onClick={handleAddExercisesToSchedule}
+            disabled={selectedExercises.length === 0}
+            className="mt-auto w-full bg-zinc-800 hover:bg-royal-600 disabled:opacity-50 disabled:hover:bg-zinc-800 text-white py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus size={18} />
+            إضافة للمخطط ({selectedExercises.length})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
   const renderMemberSchedulePage = () => {
     const rawSchedule =
       schedules[String(auth.user?.id)]?.text || '';
