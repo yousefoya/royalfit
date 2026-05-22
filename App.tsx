@@ -905,25 +905,40 @@ const renderTrainerDashboard = () => {
       {/* 2. قسم المشتركين: أصبح بعرض الشاشة الكامل */}
       <div className="w-full space-y-6">
       {/* 🔍 Search Bar */}
-      <div className="flex justify-between items-center gap-4 px-2">
-        <div className="relative w-full max-w-md">
-          <Search
-            size={18}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400"
-          />
-          <input
-            type="text"
-            placeholder="ابحث باسم المشترك أو رقم الهاتف..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-black border border-zinc-700 rounded-2xl pr-11 pl-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-          />
-        </div>
+      <div className="flex flex-col gap-4 px-2">
+  {/* Row 1: Search + Filter */}
+  <div className="flex gap-3 items-center">
+    <div className="relative flex-1">
+      <Search
+        size={18}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400"
+      />
+      <input
+        type="text"
+        placeholder="ابحث باسم المشترك أو رقم الهاتف..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-full bg-black border border-zinc-700 rounded-2xl pr-11 pl-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+      />
+    </div>
 
-        <div className="text-sm text-zinc-400 font-bold">
-          {getFilteredMembersForTrainer().length} مشترك
-        </div>
-      </div>
+    <div className="relative">
+      <select
+        value={scheduleStatusFilter}
+        onChange={(e) => setScheduleStatusFilter(e.target.value as any)}
+        className="bg-black border border-zinc-700 rounded-2xl px-4 py-3 pl-8 text-white focus:ring-2 focus:ring-emerald-500 outline-none appearance-none"
+      >
+        <option value="all">كل الحالات</option>
+        <option value={ScheduleStatus.PENDING}>قيد الانتظار</option>
+        <option value={ScheduleStatus.IN_PROGRESS}>في تَقَدم</option>
+        <option value={ScheduleStatus.COMPLETED}>مكتمل</option>
+        <option value={ScheduleStatus.NEED_UPDATE}>يحتاج تحديث</option>
+      </select>
+      <ChevronDown className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+    </div>
+  </div>
+
+</div>
 
         <div className="flex items-center justify-between px-2">
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
@@ -959,30 +974,26 @@ const renderTrainerDashboard = () => {
                     </div>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => openChat(user.id)}
-                      className="flex-1 bg-emerald-600/10 text-emerald-500 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-600 hover:text-white transition-all font-bold text-sm"
-                    >
-                      <MessageSquare size={18} />
-                      دردشة
-                    </button>
+                  <div className="flex gap-2 mt-4">
                     <button 
                       onClick={() => openScheduleEditor(user.id)}
-                      className="p-3 bg-zinc-800 text-white rounded-xl hover:bg-zinc-700 transition-all"
+                      className="flex-1 bg-zinc-800 hover:bg-emerald-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm"
                       title="تعديل البرنامج"
                     >
                       <Edit size={18} />
+                      البرنامج
                     </button>
-                      <button 
-                        onClick={() => {
+
+                    <button 
+                      onClick={() => {
                         setEditingClientIdForNutrition(user.id);
                         setCurrentPage('trainer-nutrition');
                       }}
-                      className="p-3 bg-amber-900/20 text-amber-500 hover:bg-amber-600 hover:text-white rounded-xl transition-colors"
+                      className="flex-1 bg-amber-900/20 hover:bg-amber-600 text-amber-500 hover:text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm"
                       title="تعيين خطة تغذية"
                     >
                       <Utensils size={18} />
+                      التغذية
                     </button>
                   </div>
                 </div>
@@ -1697,29 +1708,13 @@ const trainerObj =
                        {user.role === UserRole.MEMBER ? (
                          <div className="flex items-center justify-center gap-2">
                            <span className="text-xs text-gray-300">{trainerObj?.name || '-'}</span>
-                           {user.trainerId && (
-                             <button 
-                               onClick={() => openChat(user.trainerId!)}
-                               className="p-1.5 bg-royal-600/20 hover:bg-royal-600 text-royal-500 hover:text-white rounded transition-colors"
-                               title="مراسلة مدرب المشترك"
-                             >
-                               <MessageSquare size={12} />
-                             </button>
-                           )}
+                           
                          </div>
                        ) : '-'}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                         {user.role === UserRole.TRAINER && (
-                           <button 
-                             onClick={() => openChat(user.id)}
-                             className="p-2 bg-royal-600/20 hover:bg-royal-600 text-royal-500 hover:text-white rounded-lg transition-colors"
-                             title="تواصل مع المدرب"
-                           >
-                             <MessageSquare size={16} />
-                           </button>
-                         )}
+                         
                          {user.role === UserRole.MEMBER && isExpired && (
                            <button 
                              onClick={() => sendWhatsAppNotification(user)}
@@ -1810,37 +1805,6 @@ const trainerObj =
                 </div>
               </div>
             </div>
-            
-            {auth.user.role === UserRole.MEMBER && (
-              <div className="mt-4">
-                 <button
-                   onClick={() => {
-                     const targetTrainerId = auth.user?.trainerId || users.find(u => u.role === UserRole.TRAINER)?.id;
-                     if (targetTrainerId) openChat(targetTrainerId);
-                   }}
-                   className="w-full bg-royal-600 hover:bg-royal-500 text-white p-4 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg transition-transform hover:scale-105"
-                 >
-                   <MessageSquare size={20} />
-                   محادثة المدرب
-                 </button>
-              </div>
-            )}
-
-            {/* Added for Trainer: Chat with Admin button in dashboard sidebar */}
-            {auth.user.role === UserRole.TRAINER && (
-              <div className="mt-4">
-                 <button
-                   onClick={() => {
-                     const admin = users.find(u => u.role === UserRole.ADMIN);
-                     if (admin) openChat(admin.id);
-                   }}
-                   className="w-full bg-zinc-800 hover:bg-zinc-700 text-white p-4 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg transition-transform hover:scale-105 border border-zinc-800"
-                 >
-                   <Lock size={20} className="text-royal-500" />
-                   تواصل مع الإدارة
-                 </button>
-              </div>
-            )}
           </div>
 
           <div className="w-full md:w-3/4 space-y-6">
