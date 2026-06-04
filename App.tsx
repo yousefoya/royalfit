@@ -166,24 +166,25 @@ useEffect(() => {
 }, [nutritionTemplates]);
 
 const [editingClientIdForNutrition, setEditingClientIdForNutrition] = useState<string | null>(null);
-  useEffect(() => {
-    const storedUser = localStorage.getItem('royal_auth');
 
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
+useEffect(() => {
+  const storedUser = localStorage.getItem('royal_auth');
+  if (storedUser) {
+    try {
+      const user = JSON.parse(storedUser);
 
-        setAuth({
-          isAuthenticated: true,
-          user
-        });
-
-        setCurrentPage('dashboard');
-      } catch {
+      if (user.role === UserRole.MEMBER && isSubscriptionExpired(user.subscriptionEndDate)) {
         localStorage.removeItem('royal_auth');
+        return;
       }
+
+      setAuth({ isAuthenticated: true, user });
+      setCurrentPage('dashboard');
+    } catch {
+      localStorage.removeItem('royal_auth');
     }
-  }, []);
+  }
+}, []);
 
 useEffect(() => {
   fetch(`${API_BASE}/get_nutrition_templates.php`)
@@ -194,8 +195,8 @@ useEffect(() => {
           data.templates.map((t: any) => ({
             ...t,
             id: String(t.id),
-            goal: t.goal.toUpperCase(),
-            meals: t.meals ?? []
+            goal: t.goal.toUpperCase(), // 🔥 الحل
+            meals: t.meals ?? []        // 🔥 تأكيد
           }))
         );
       }
@@ -204,7 +205,6 @@ useEffect(() => {
       console.error('❌ Failed to load nutrition templates:', err);
     });
 }, []);
-
 useEffect(() => {
   fetch(`${API_BASE}/get_exercises.php`)
     .then(res => res.json())
@@ -228,6 +228,8 @@ useEffect(() => {
 }, []);
 
 
+
+
   const [loginTab, setLoginTab] = useState<UserRole>(UserRole.MEMBER);
   const [loginPhone, setLoginPhone] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -237,7 +239,6 @@ useEffect(() => {
   const [editUser, setEditUser] = useState<any>(null);
   const [users, setUsers] = useState<User[]>([]);  
   const renderWeeklyIntegratedView = () => <WeeklyIntegratedView />;
-
   const handleDeleteUser = async (userId: string) => {
   if (!auth.user || auth.user.role !== UserRole.ADMIN) return;
 
@@ -256,6 +257,7 @@ useEffect(() => {
     const result = await res.json();
     if (!result.success) throw new Error(result.error);
 
+    // ✅ تحديث الواجهة بعد نجاح السيرفر فقط
     setUsers(prev => prev.filter(u => u.id !== userId));
 
   } catch (err) {
@@ -270,7 +272,6 @@ useEffect(() => {
     .then(data => setUsers(data))
     .catch(err => console.error('Failed to load users:', err));
 }, []);
-
 useEffect(() => {
   if (!auth.user) return;
 
@@ -291,6 +292,8 @@ useEffect(() => {
 }, [auth.user]);
 
 
+
+
   const [schedules, setSchedules] = useState<
     Record<string, { text: string; updatedAt: string }>
   >({});
@@ -298,9 +301,10 @@ useEffect(() => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [scheduleStatusFilter, setScheduleStatusFilter] = useState<'all' | ScheduleStatus>('all');
-  // ✅ فلتر حالة الاشتراك الجديد
   const [subscriptionFilter, setSubscriptionFilter] = useState<'all' | 'active' | 'expired'>('all');
+
   const [trainerFilter, setTrainerFilter] = useState<string>('all');
+
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [tempSchedule, setTempSchedule] = useState('');
   
@@ -308,13 +312,14 @@ useEffect(() => {
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const [workoutLibrary, setWorkoutLibrary] = useState<Record<string, string[]>>({});
 
+  
   const [selectedMemberMuscle, setSelectedMemberMuscle] = useState<string | null>(null);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({ password: '', avatar: '' });
 
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', phone: '', role: UserRole.MEMBER, trainerId: null as number | null, password: '' });
+  const [newUser, setNewUser] = useState({ name: '', phone: '', role: UserRole.MEMBER,   trainerId: null as number | null, password: '' });
   const [subscriptionDuration, setSubscriptionDuration] = useState('1'); 
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -329,7 +334,6 @@ const isExerciseAdded = (exercise: string) => {
     .toLowerCase()
     .includes(exercise.toLowerCase());
 };
-
   useEffect(() => {
     if (isChatOpen) {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -341,6 +345,7 @@ const isExerciseAdded = (exercise: string) => {
     const text = scheduleObj?.text || '';
     let status = computeScheduleStatusFromText(text);
 
+    // 🔥 استخدم updatedAt من schedules وليس user
     if (
       status === ScheduleStatus.COMPLETED &&
       scheduleObj?.updatedAt
@@ -350,7 +355,7 @@ const isExerciseAdded = (exercise: string) => {
       const diffDays =
         (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24);
 
-      if (diffDays > 21) {
+      if (diffDays > 28) {
         return ScheduleStatus.NEED_UPDATE;
       }
     }
@@ -377,6 +382,7 @@ const computeScheduleStatusFromText = (scheduleText: string): ScheduleStatus => 
     }
   }
 
+  // ❌ ممنوع مكتمل إذا ناقص ولا عضلة
   if (coveredCount < muscleGroups.length) {
     return ScheduleStatus.IN_PROGRESS;
   }
@@ -400,7 +406,7 @@ const computeScheduleStatusFromText = (scheduleText: string): ScheduleStatus => 
       setAuth({ isAuthenticated: true, user: data.user });
       localStorage.setItem('royal_auth', JSON.stringify(data.user));
       setCurrentPage('dashboard');
-    } else {
+    }else {
       setLoginError(data.error || 'فشل في تسجيل الدخول');
     }
   } catch (err) {
@@ -415,9 +421,9 @@ const computeScheduleStatusFromText = (scheduleText: string): ScheduleStatus => 
     setCurrentPage('home');
     setSearchQuery('');
     setRoleFilter('all');
+    setSubscriptionFilter('all'); // ✅ reset فلتر الاشتراك
     setTrainerFilter('all');
     setScheduleStatusFilter('all');
-    setSubscriptionFilter('all'); // ✅ reset فلتر الاشتراك
     setIsChatOpen(false);
     setLoginError('');
   };
@@ -427,6 +433,7 @@ const handleSaveSchedule = async () => {
   if (!editingClientId || tempSchedule === null) return;
 
   try {
+    // 🔥 Critical: Use clientId (matches DB column `client_id`)
     const res = await fetch(`${API_BASE}/save_schedule.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -447,6 +454,7 @@ const handleSaveSchedule = async () => {
       throw new Error(result.error || 'فشل في الحفظ');
     }
 
+    // ✅ Optimistic + DB sync
     setSchedules(prev => ({
     ...prev,
     [editingClientId]: {
@@ -455,6 +463,7 @@ const handleSaveSchedule = async () => {
     }
   }));
     const newStatus = computeScheduleStatusFromText(tempSchedule);
+
 
     setEditingClientId(null);
     if (currentPage === 'trainer-schedule') {
@@ -471,8 +480,7 @@ const handleSaveSchedule = async () => {
 
   const openScheduleEditor = (clientId: string) => {
     setEditingClientId(clientId);
-    setTempSchedule(schedules[clientId]?.text || '');
-    setSelectedMuscle(Object.keys(WORKOUT_DB)[0]);
+    setTempSchedule(schedules[clientId]?.text || '');    setSelectedMuscle(Object.keys(WORKOUT_DB)[0]);
     setSelectedExercises([]);
 
     setUsers(prevUsers => prevUsers.map(u => {
@@ -552,7 +560,6 @@ const handleSaveSchedule = async () => {
     alert('❌ فشل تحديث كلمة المرور');
   }
 };
-
 const handleDeleteNutritionTemplate = async (templateId: string) => {
   if (!auth.user || auth.user.role !== UserRole.ADMIN) return;
 
@@ -574,6 +581,7 @@ const handleDeleteNutritionTemplate = async (templateId: string) => {
       throw new Error(data.error || 'Delete failed');
     }
 
+    // ✅ تحديث الواجهة مباشرة
     setNutritionTemplates(prev =>
       prev.filter(t => t.id !== templateId)
     );
@@ -588,6 +596,7 @@ const handleSaveEditUser = async () => {
   if (!editUser || !auth.user) return;
 
   try {
+    // 1️⃣ حفظ بيانات المستخدم العادية (الاسم / الهاتف / الدور / المدرب ...)
     const res = await fetch(`${API_BASE}/update_user.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -600,6 +609,7 @@ const handleSaveEditUser = async () => {
       return;
     }
 
+    // 2️⃣ 🔐 إذا الأدمن كتب كلمة مرور جديدة
     if (adminNewPassword && auth.user.role === UserRole.ADMIN) {
       const passRes = await fetch(`${API_BASE}/admin_reset_password.php`, {
         method: 'POST',
@@ -618,6 +628,7 @@ const handleSaveEditUser = async () => {
       }
     }
 
+    // 3️⃣ تحديث الواجهة
     setUsers(prev =>
       prev.map(u => (u.id === editUser.id ? editUser : u))
     );
@@ -631,6 +642,7 @@ const handleSaveEditUser = async () => {
     alert('❌ خطأ في الاتصال بالخادم');
   }
 };
+
 
   const calculateSubscriptionEndDate = (): string | undefined => {
     if (newUser.role !== UserRole.MEMBER) return undefined;
@@ -658,8 +670,9 @@ const handleSaveEditUser = async () => {
     password: newUser.password,
     trainerId: newUser.role === UserRole.MEMBER ? newUser.trainerId : undefined,
     subscriptionEndDate: subEndDate,
-    creatorRole: auth.user?.role
+    creatorRole: auth.user?.role   // 🔥 مهم جداً
   };
+
 
   try {
     const res = await fetch(`${API_BASE}/save_user.php`, {
@@ -670,36 +683,38 @@ const handleSaveEditUser = async () => {
 
     const result = await res.json();
 
-    if (result.success) {
-      setUsers(prev => [
-        ...prev,
-        {
-          id: String(result.id),
-          name: newUser.name,
-          phone: newUser.phone,
-          role: newUser.role,
-          trainerId: newUser.trainerId ? String(newUser.trainerId) : null,
-          avatar: 'https://i.pinimg.com/1200x/2f/15/f2/2f15f2e8c688b3120d3d26467b06330c.jpg',
-          subscriptionEndDate: calculateSubscriptionEndDate(),
-          scheduleStatus: null,
-          scheduleLastUpdated: null
-        }
-      ]);
+if (result.success) {
+  setUsers(prev => [
+    ...prev,
+    {
+      id: String(result.id),
+      name: newUser.name,
+      phone: newUser.phone,
+      role: newUser.role,
+      trainerId: newUser.trainerId ? String(newUser.trainerId) : null,
+      avatar: 'https://i.pinimg.com/1200x/2f/15/f2/2f15f2e8c688b3120d3d26467b06330c.jpg',
+      subscriptionEndDate: calculateSubscriptionEndDate(),
+      scheduleStatus: null,
+      scheduleLastUpdated: null
     }
+  ]);
+}
 
+    // WhatsApp message (keep this)
     if (newUser.phone) {
       const msg = `مرحباً ${newUser.name} في رويال فتنس! 👑\nتم إنشاء حسابك بنجاح.\nاسم المستخدم: ${newUser.phone}\nكلمة المرور: ${newUser.password}\nنتمنى لك رحلة رياضية ممتعة!`;
       window.open(`https://wa.me/${formatPhoneForWhatsapp(newUser.phone)}?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
+    // Close modal
     setIsAddUserModalOpen(false);
-    setNewUser({ 
-      name: '', 
-      phone: '', 
-      role: UserRole.MEMBER, 
-      trainerId: null, 
-      password: '' 
-    });
+setNewUser({ 
+  name: '', 
+  phone: '', 
+  role: UserRole.MEMBER, 
+  trainerId: null, 
+  password: '' 
+});
     setSubscriptionDuration('1');
     setCustomEndDate('');
 
@@ -708,7 +723,6 @@ const handleSaveEditUser = async () => {
     alert('❌ خطأ في الاتصال بالخادم.');
   }
 };
-
 const handleSendMessage = async () => {
   if (!chatInput.trim() || !auth.user || !activeChatUserId) return;
 
@@ -744,6 +758,7 @@ const handleSendMessage = async () => {
       return;
     }
 
+    // ✅ استبدال الرسالة المؤقتة بالنهائية
     setChatMessages(prev =>
       prev.map(m =>
         m.id === tempId
@@ -769,7 +784,6 @@ const openChat = (targetUserId: string) => {
   setIsChatOpen(true);
   loadMessages(auth.user.id, targetUserId);
 };
-
   const getChatMessages = () => {
   if (!auth.user || !activeChatUserId) return [];
 
@@ -782,7 +796,9 @@ const openChat = (targetUserId: string) => {
       new Date(a.timestamp ?? 0).getTime() -
       new Date(b.timestamp ?? 0).getTime()
     );
+
 };
+
 
   const getTrainerName = (trainerId?: string) => {
     if (!trainerId) return '-';
@@ -806,7 +822,6 @@ const openChat = (targetUserId: string) => {
     return today > expiry;
   };
 
-  // ✅ getFilteredUsers مع فلتر الاشتراك
 const getFilteredUsers = () => {
   return users.filter(u => {
     const matchesSearch =
@@ -839,18 +854,26 @@ const getFilteredUsers = () => {
   });
 };
 
-  const getFilteredMembersForTrainer = () => {
+const getFilteredMembersForTrainer = () => {
   if (!auth.user) return [];
 
-  return users.filter(u =>
-    u.role === UserRole.MEMBER &&
-    String(u.trainerId) === String(auth.user.id) &&
-    (
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.phone.includes(searchQuery)
-    )
-  );
+  return users.filter(u => {
+    if (u.role !== UserRole.MEMBER) return false;
+    if (String(u.trainerId) !== String(auth.user!.id)) return false;
+
+    // Hide expired subscriptions
+    if (isSubscriptionExpired(u.subscriptionEndDate)) return false;
+
+    const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.phone.includes(searchQuery);
+
+    const matchesStatus = scheduleStatusFilter === 'all' || 
+                         getUserScheduleStatus(u) === scheduleStatusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
 };
+
 
   const renderStatusBadge = (user: User) => {
     const status = getUserScheduleStatus(user);
@@ -866,11 +889,12 @@ const getFilteredUsers = () => {
       default: return null;
     }
   };
-
 const renderTrainerDashboard = () => {
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* 1. القسم العلوي الجديد: معلومات المدرب بدلاً من "مرحبا" */}
       <div className="w-full bg-emerald-600 rounded-3xl p-6 mb-8 flex items-center gap-6 shadow-2xl relative overflow-hidden">
+        {/* خلفية جمالية خفيفة */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
         
         <div className="relative z-10 flex items-center gap-6 w-full">
@@ -897,33 +921,55 @@ const renderTrainerDashboard = () => {
         </div>
       </div>
 
+      {/* 2. قسم المشتركين: أصبح بعرض الشاشة الكامل */}
       <div className="w-full space-y-6">
-        <div className="flex justify-between items-center gap-4 px-2">
-          <div className="relative w-full max-w-md">
-            <Search size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="ابحث باسم المشترك أو رقم الهاتف..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-black border border-zinc-700 rounded-2xl pr-11 pl-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-            />
-          </div>
-          <div className="text-sm text-zinc-400 font-bold">
-            {getFilteredMembersForTrainer().length} مشترك
-          </div>
-        </div>
+      {/* 🔍 Search Bar */}
+      <div className="flex flex-col gap-4 px-2">
+  {/* Row 1: Search + Filter */}
+  <div className="flex gap-3 items-center">
+    <div className="relative flex-1">
+      <Search
+        size={18}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400"
+      />
+      <input
+        type="text"
+        placeholder="ابحث باسم المشترك أو رقم الهاتف..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-full bg-black border border-zinc-700 rounded-2xl pr-11 pl-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+      />
+    </div>
+
+    <div className="relative">
+      <select
+        value={scheduleStatusFilter}
+        onChange={(e) => setScheduleStatusFilter(e.target.value as any)}
+        className="bg-black border border-zinc-700 rounded-2xl px-4 py-3 pl-8 text-white focus:ring-2 focus:ring-emerald-500 outline-none appearance-none"
+      >
+        <option value="all">كل الحالات</option>
+        <option value={ScheduleStatus.PENDING}>قيد الانتظار</option>
+        <option value={ScheduleStatus.IN_PROGRESS}>في تَقَدم</option>
+        <option value={ScheduleStatus.COMPLETED}>مكتمل</option>
+        <option value={ScheduleStatus.NEED_UPDATE}>يحتاج تحديث</option>
+      </select>
+      <ChevronDown className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+    </div>
+  </div>
+
+</div>
 
         <div className="flex items-center justify-between px-2">
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
             <Users className="text-emerald-500" size={28} />
-            المشتركين عندي
+            المشتركين عندي {/* تغيير المسمى من متدربين إلى مشتركين */}
           </h2>
           <div className="bg-zinc-800 text-zinc-400 px-4 py-1.5 rounded-full text-sm font-bold border border-zinc-700">
             {getFilteredMembersForTrainer().length} مشترك نشط
           </div>
         </div>
 
+        {/* المربع الكبير الذي يمتد على كامل عرض الشاشة */}
         <div className="bg-zinc-900/50 rounded-[2.5rem] border border-zinc-800 p-8 shadow-2xl backdrop-blur-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {getFilteredMembersForTrainer().length > 0 ? (
@@ -947,30 +993,26 @@ const renderTrainerDashboard = () => {
                     </div>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => openChat(user.id)}
-                      className="flex-1 bg-emerald-600/10 text-emerald-500 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-600 hover:text-white transition-all font-bold text-sm"
-                    >
-                      <MessageSquare size={18} />
-                      دردشة
-                    </button>
+                  <div className="flex gap-2 mt-4">
                     <button 
                       onClick={() => openScheduleEditor(user.id)}
-                      className="p-3 bg-zinc-800 text-white rounded-xl hover:bg-zinc-700 transition-all"
+                      className="flex-1 bg-zinc-800 hover:bg-emerald-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm"
                       title="تعديل البرنامج"
                     >
                       <Edit size={18} />
+                      البرنامج
                     </button>
+
                     <button 
                       onClick={() => {
                         setEditingClientIdForNutrition(user.id);
                         setCurrentPage('trainer-nutrition');
                       }}
-                      className="p-3 bg-amber-900/20 text-amber-500 hover:bg-amber-600 hover:text-white rounded-xl transition-colors"
+                      className="flex-1 bg-amber-900/20 hover:bg-amber-600 text-amber-500 hover:text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm"
                       title="تعيين خطة تغذية"
                     >
                       <Utensils size={18} />
+                      التغذية
                     </button>
                   </div>
                 </div>
@@ -987,9 +1029,8 @@ const renderTrainerDashboard = () => {
     </div>
   );
 };
-
   const renderSquareStatus = (user: User) => {
-    const status = getUserScheduleStatus(user);
+const status = getUserScheduleStatus(user);
     const styles = {
       [ScheduleStatus.PENDING]: 'bg-yellow-900/30 border-yellow-700/50 text-yellow-500',
       [ScheduleStatus.IN_PROGRESS]: 'bg-green-900/30 border-green-700/50 text-green-500',
@@ -1018,136 +1059,132 @@ const renderTrainerDashboard = () => {
     );
   };
 
-  const renderScheduleEditorPage = () => {
-     const client = users.find(u => u.id === editingClientId);
-     if (!client) return null;
+const renderScheduleEditorPage = () => {
+  const client = users.find(u => u.id === editingClientId);
+  if (!client) return null;
 
-     return (
-       <div className="container mx-auto px-4 py-8 min-h-screen">
-         <div className="flex items-center justify-between mb-8">
-           <div>
-              <button 
-                onClick={() => setCurrentPage('dashboard')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white mb-2 transition-colors"
+  return (
+    <div className="container mx-auto px-4 py-8 min-h-screen">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <button 
+            onClick={() => setCurrentPage('dashboard')}
+            className="flex items-center gap-2 text-gray-400 hover:text-white mb-2 transition-colors"
+          >
+            <ArrowRight size={18} />
+            <span>إلغاء وعودة</span>
+          </button>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Edit className="text-royal-500" />
+            تعديل البرنامج التدريبي
+          </h1>
+          <p className="text-gray-400 mt-1">المشترك: <span className="text-white font-bold">{client.name}</span></p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => setTempSchedule('')}
+            className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2"
+          >
+            <Trash2 size={20} /> Reset
+          </button>
+          <button 
+            onClick={handleSaveSchedule}
+            className="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2"
+          >
+            <Save size={20} />
+            حفظ البرنامج
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 h-full flex flex-col">
+        <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+          <ListFilter size={20} className="text-royal-500" />
+          اختيار التمارين
+        </h3>
+        
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+            {(Object.keys(workoutLibrary).length > 0
+              ? Object.keys(workoutLibrary)
+              : Object.keys(WORKOUT_DB)
+            ).map(muscle => (
+              <button
+                key={muscle}
+                onClick={() => setSelectedMuscle(muscle)}
+                className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-bold transition-all ${
+                  selectedMuscle === muscle
+                    ? 'bg-royal-600 text-white'
+                    : 'bg-black border border-zinc-700 text-gray-400 hover:bg-zinc-800'
+                }`}
               >
-                <ArrowRight size={18} />
-                <span>إلغاء وعودة</span>
+                {muscle}
               </button>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                <Edit className="text-royal-500" />
-                تعديل البرنامج التدريبي
-              </h1>
-              <p className="text-gray-400 mt-1">المشترك: <span className="text-white font-bold">{client.name}</span></p>
-           </div>
-           
-           <button 
-             onClick={handleSaveSchedule}
-             className="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-green-900/20"
-           >
-             <Save size={20} />
-             حفظ البرنامج
-           </button>
-         </div>
+            ))}
+          </div>
 
-         <div className="grid lg:grid-cols-3 gap-8">
-           <div className="lg:col-span-1 space-y-6">
-             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 h-full flex flex-col">
-               <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                 <ListFilter size={20} className="text-royal-500" />
-                 اختيار التمارين
-               </h3>
-               
-               <div className="flex-1 flex flex-col gap-4">
-                 <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                  {(Object.keys(workoutLibrary).length > 0
-                    ? Object.keys(workoutLibrary)
-                    : Object.keys(WORKOUT_DB)
-                  ).map(muscle => (
-                    <button
-                      key={muscle}
-                      onClick={() => setSelectedMuscle(muscle)}
-                      className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-bold transition-all ${
-                        selectedMuscle === muscle
-                          ? 'bg-royal-600 text-white'
-                          : 'bg-black border border-zinc-700 text-gray-400 hover:bg-zinc-800'
-                      }`}
-                    >
-                      {muscle}
-                    </button>
-                  ))}
+          {selectedMuscle && (
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 border-t border-zinc-800 pt-4">
+              {(workoutLibrary[selectedMuscle] || []).map((ex, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    if (isExerciseAdded(ex)) {
+                      setTempSchedule(prev =>
+                        prev
+                          .split('\n')
+                          .filter(line => !line.toLowerCase().includes(ex.toLowerCase()))
+                          .join('\n')
+                      );
+                    } else {
+                      toggleExerciseSelection(ex);
+                    }
+                  }}
+                  className={`
+                    p-3 rounded-lg border cursor-pointer transition-all
+                    flex items-center justify-between
+                    ${
+                      isExerciseAdded(ex)
+                        ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
+                        : selectedExercises.includes(ex)
+                          ? 'bg-royal-900/40 border-royal-500 text-white'
+                          : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:border-zinc-600'
+                    }
+                  `}
+                >
+                  <span className="text-sm">{ex}</span>
+                  {isExerciseAdded(ex) && (
+                    <span className="text-emerald-400 font-bold text-xs">✓ مضاف</span>
+                  )}
                 </div>
+              ))}
+            </div>
+          )}
 
-                 {selectedMuscle && (
-                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 border-t border-zinc-800 pt-4">
-                      {(workoutLibrary[selectedMuscle] || []).map((ex, idx) => (
-                       <div
-                        key={idx}
-                        onClick={() => toggleExerciseSelection(ex)}
-                        className={`
-                          p-3 rounded-lg border cursor-pointer transition-all
-                          flex items-center justify-between
-                          ${
-                            isExerciseAdded(ex)
-                              ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
-                              : selectedExercises.includes(ex)
-                                ? 'bg-royal-900/40 border-royal-500 text-white'
-                                : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:border-zinc-600'
-                          }
-                        `}
-                      >
-                        <span className="text-sm">{ex}</span>
-                        {isExerciseAdded(ex) && (
-                          <span className="text-emerald-400 font-bold text-xs">✓ مضاف</span>
-                        )}
-                      </div>
-                     ))}
-                   </div>
-                 )}
-
-                 <button 
-                   onClick={handleAddExercisesToSchedule}
-                   disabled={selectedExercises.length === 0}
-                   className="mt-auto w-full bg-zinc-800 hover:bg-royal-600 disabled:opacity-50 disabled:hover:bg-zinc-800 text-white py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-                 >
-                   <Plus size={18} />
-                   إضافة للمخطط ({selectedExercises.length})
-                 </button>
-               </div>
-             </div>
-           </div>
-
-           <div className="lg:col-span-2">
-             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6 h-full flex flex-col">
-               <div className="flex justify-between items-center mb-4">
-                 <h3 className="font-bold text-white flex items-center gap-2">
-                   <FileClock size={20} className="text-royal-500" />
-                   مخطط الأسبوع
-                 </h3>
-                 <span className="text-xs text-gray-500">يمكنك تعديل النص يدوياً</span>
-               </div>
-               
-               <textarea 
-                 value={tempSchedule}
-                 onChange={(e) => setTempSchedule(e.target.value)}
-                 className="flex-1 w-full bg-black border border-zinc-700 rounded-xl p-4 text-white font-mono leading-relaxed focus:ring-2 focus:ring-royal-500 outline-none resize-none"
-                 placeholder="قم باختيار التمارين من القائمة الجانبية أو اكتب هنا مباشرة..."
-                 style={{ minHeight: '500px' }}
-               />
-             </div>
-           </div>
-         </div>
-       </div>
-     );
-  };
-
+          <button 
+            onClick={handleAddExercisesToSchedule}
+            disabled={selectedExercises.length === 0}
+            className="mt-auto w-full bg-zinc-800 hover:bg-royal-600 disabled:opacity-50 disabled:hover:bg-zinc-800 text-white py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus size={18} />
+            إضافة للمخطط ({selectedExercises.length})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
   const renderMemberSchedulePage = () => {
-    const rawSchedule = schedules[String(auth.user?.id)]?.text || '';
+    const rawSchedule =
+      schedules[String(auth.user?.id)]?.text || '';
     const muscleGroupsInSchedule: Record<string, string[]> = {};
     const lines = rawSchedule.split('\n').filter(l => l.trim().length > 0) || [];
 
     lines.forEach(line => {
       let matched = false;
 
+      // 1️⃣ أولوية: العضلة المكتوبة بين []
       const muscleMatch = line.match(/^\[(.+?)\]/);
       if (muscleMatch) {
         const muscle = muscleMatch[1];
@@ -1163,6 +1200,7 @@ const renderTrainerDashboard = () => {
         matched = true;
       }
 
+      // 2️⃣ fallback قديم (للتمارين القديمة بدون [])
       if (!matched) {
         for (const [muscle, exercises] of Object.entries(WORKOUT_DB)) {
           if (exercises.some(ex => line.includes(ex))) {
@@ -1176,6 +1214,7 @@ const renderTrainerDashboard = () => {
         }
       }
 
+      // 3️⃣ إذا ما انعرفت → توجيهات عامة
       if (!matched) {
         if (!muscleGroupsInSchedule['توجيهات عامة']) {
           muscleGroupsInSchedule['توجيهات عامة'] = [];
@@ -1184,11 +1223,13 @@ const renderTrainerDashboard = () => {
       }
     });
 
+
     const activeMuscles = Object.keys(muscleGroupsInSchedule).filter(k => k !== 'توجيهات عامة' && muscleGroupsInSchedule[k].length > 0);
     const hasGeneralInstructions = muscleGroupsInSchedule['توجيهات عامة']?.length > 0;
 
-    return (
+        return (
       <div className="container mx-auto px-4 py-8">
+        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => setCurrentPage('dashboard')}
@@ -1202,6 +1243,7 @@ const renderTrainerDashboard = () => {
           </div>
         </div>
 
+        {/* Workout Cards */}
         {lines.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {activeMuscles.map((muscle) => (
@@ -1249,6 +1291,7 @@ const renderTrainerDashboard = () => {
           </div>
         )}
 
+        {/* Modal for selected muscle */}
         {selectedMemberMuscle && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-zinc-900 w-full max-w-lg rounded-2xl border border-zinc-800 shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
@@ -1295,76 +1338,81 @@ const renderTrainerDashboard = () => {
       </div>
     );
   };
+    const renderMemberNutritionPage = () => {
+      
+const template = getSafeTemplate(
+  nutritionPlans[String(auth.user?.id)]
+);
 
-  const renderMemberNutritionPage = () => {
-    const template = getSafeTemplate(nutritionPlans[String(auth.user?.id)]);
+if (!template) {
+  return (
+    <div className="text-center text-gray-400 py-20">
+      ⏳ جاري تحميل خطة التغذية...
+    </div>
+  );
+}
 
-    if (!template) {
-      return (
-        <div className="text-center text-gray-400 py-20">
-          ⏳ جاري تحميل خطة التغذية...
-        </div>
-      );
-    }
+  const meals = template.meals;
 
-    const meals = template.meals;
-
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
-          <button 
-            onClick={() => setCurrentPage('dashboard')}
-            className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-full text-white transition-colors shadow-lg"
-          >
-            <ArrowRight size={24} />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-white">جدول التغذية</h1>
-            <p className="text-gray-400 mt-1">خطة: {template.name}</p>
-          </div>
-        </div>
-
-        <div className="flex bg-zinc-900/50 p-2 rounded-2xl gap-2 overflow-x-auto border border-zinc-800 mb-8 no-scrollbar">
-          {nutritionTemplates.map(t => (
-            <button
-              key={t.id}
-              onClick={() =>
-                setNutritionPlans(prev => ({
-                  ...prev,
-                  [String(auth.user?.id)]: t.id
-                }))
-              }
-              className={`px-6 py-3 rounded-xl text-sm font-black transition-all whitespace-nowrap ${
-                (nutritionPlans[String(auth.user?.id)] || nutritionTemplates[0].id) === t.id
-                  ? 'bg-royal-600 text-white'
-                  : 'text-zinc-500 hover:text-white hover:bg-zinc-800'
-              }`}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {meals.map(meal => (
-            <NutritionCard key={meal.id} meal={meal} onClick={() => setSelectedMeal(meal)} />
-          ))}
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center gap-4 mb-8">
+        <button 
+          onClick={() => setCurrentPage('dashboard')}
+          className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-full text-white transition-colors shadow-lg"
+        >
+          <ArrowRight size={24} />
+        </button>
+        <div>
+          <h1 className="text-3xl font-bold text-white">جدول التغذية</h1>
+          <p className="text-gray-400 mt-1">خطة: {template.name}</p>
         </div>
       </div>
-    );
+      {/* Nutrition Template Switcher */}
+      <div className="flex bg-zinc-900/50 p-2 rounded-2xl gap-2 overflow-x-auto border border-zinc-800 mb-8 no-scrollbar">
+        {nutritionTemplates
+.map(t => (
+          <button
+            key={t.id}
+            onClick={() =>
+              setNutritionPlans(prev => ({
+                ...prev,
+                [String(auth.user?.id)]: t.id
+              }))
+            }
+            className={`px-6 py-3 rounded-xl text-sm font-black transition-all whitespace-nowrap ${
+              (nutritionPlans[String(auth.user?.id)] || nutritionTemplates
+[0].id) === t.id
+                ? 'bg-royal-600 text-white'
+                : 'text-zinc-500 hover:text-white hover:bg-zinc-800'
+            }`}
+          >
+            {t.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Meals Grid */}
+     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      
+        {meals.map(meal => (
+          <NutritionCard key={meal.id} meal={meal} onClick={() => setSelectedMeal(meal)} />
+        ))}
+      </div>
+    </div>
+  );
+};
+const renderTrainerNutritionPage = () => {
+  const client = users.find(u => u.id === editingClientIdForNutrition);
+  if (!client) return null;
+
+  const handleAssignNutrition = () => {
+    setNutritionPlans(prev => ({ ...prev, [editingClientIdForNutrition!]: previewTemplateId }));
+    alert('✅ تم تعيين خطة التغذية بنجاح');
+    setCurrentPage('dashboard');
   };
 
-  const renderTrainerNutritionPage = () => {
-    const client = users.find(u => u.id === editingClientIdForNutrition);
-    if (!client) return null;
-
-    const handleAssignNutrition = () => {
-      setNutritionPlans(prev => ({ ...prev, [editingClientIdForNutrition!]: previewTemplateId }));
-      alert('✅ تم تعيين خطة التغذية بنجاح');
-      setCurrentPage('dashboard');
-    };
-
-    const currentTemplate = getSafeTemplate(previewTemplateId);
+  const currentTemplate = getSafeTemplate(previewTemplateId);
 
     if (!currentTemplate) {
       return (
@@ -1374,70 +1422,74 @@ const renderTrainerDashboard = () => {
       );
     }
 
-    const previewMeals = currentTemplate?.meals ?? [];
 
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <button 
-              onClick={() => setCurrentPage('dashboard')}
-              className="flex items-center gap-2 text-gray-400 hover:text-white mb-2"
-            >
-              <ArrowRight size={18} /> العودة
-            </button>
-            <h1 className="text-2xl font-bold text-white">تعيين خطة تغذية</h1>
-            <p className="text-gray-400">للمشترك: <span className="text-white font-bold">{client.name}</span></p>
-          </div>
-        </div>
+  const previewMeals = currentTemplate?.meals ?? [];
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {nutritionTemplates.map(temp => (
-            <button
-              key={temp.id}
-              onClick={() => setPreviewTemplateId(temp.id)}
-              className={`p-6 rounded-2xl border text-right h-full flex flex-col ${
-                previewTemplateId === temp.id 
-                  ? 'border-royal-500 bg-royal-900/20' 
-                  : 'border-zinc-800 bg-zinc-900'
-              }`}
-            >
-              {nutritionPlans[editingClientIdForNutrition!] === temp.id && (
-                <span className="text-xs bg-royal-600 text-white px-2 py-1 rounded-full mb-2 w-fit">مفعل</span>
-              )}
-              <h3 className="font-bold text-white mb-2">{temp.name}</h3>
-              <p className="text-gray-400 text-sm flex-grow">{temp.description}</p>
-            </button>
-          ))}
-        </div>
 
-        <div className="mb-8">
-          <h3 className="font-bold text-white mb-4">معاينة: اليوم الأول</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {previewMeals.map(meal => (
-              <NutritionCard key={meal.id} meal={meal} />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-4">
-          <button
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <button 
             onClick={() => setCurrentPage('dashboard')}
-            className="px-6 py-3 bg-zinc-800 text-white rounded-lg"
+            className="flex items-center gap-2 text-gray-400 hover:text-white mb-2"
           >
-            إلغاء
+            <ArrowRight size={18} /> العودة
           </button>
-          <button
-            onClick={handleAssignNutrition}
-            className="px-6 py-3 bg-royal-600 hover:bg-royal-500 text-white rounded-lg font-bold"
-          >
-            تعيين الخطة
-          </button>
+          <h1 className="text-2xl font-bold text-white">تعيين خطة تغذية</h1>
+          <p className="text-gray-400">للمشترك: <span className="text-white font-bold">{client.name}</span></p>
         </div>
       </div>
-    );
-  };
 
+      {/* Template Library */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {nutritionTemplates
+.map(temp => (
+          <button
+            key={temp.id}
+            onClick={() => setPreviewTemplateId(temp.id)}
+            className={`p-6 rounded-2xl border text-right h-full flex flex-col ${
+              previewTemplateId === temp.id 
+                ? 'border-royal-500 bg-royal-900/20' 
+                : 'border-zinc-800 bg-zinc-900'
+            }`}
+          >
+            {nutritionPlans[editingClientIdForNutrition!] === temp.id && (
+              <span className="text-xs bg-royal-600 text-white px-2 py-1 rounded-full mb-2 w-fit">مفعل</span>
+            )}
+            <h3 className="font-bold text-white mb-2">{temp.name}</h3>
+            <p className="text-gray-400 text-sm flex-grow">{temp.description}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Preview */}
+          <div className="mb-8">
+            <h3 className="font-bold text-white mb-4">معاينة: اليوم الأول</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {previewMeals.map(meal => (
+                <NutritionCard key={meal.id} meal={meal} />
+              ))}
+            </div>
+      </div>
+
+      <div className="flex justify-end gap-4">
+        <button
+          onClick={() => setCurrentPage('dashboard')}
+          className="px-6 py-3 bg-zinc-800 text-white rounded-lg"
+        >
+          إلغاء
+        </button>
+        <button
+          onClick={handleAssignNutrition}
+          className="px-6 py-3 bg-royal-600 hover:bg-royal-500 text-white rounded-lg font-bold"
+        >
+          تعيين الخطة
+        </button>
+      </div>
+    </div>
+  );
+};
   const HomePage = () => (
     <div className="min-h-[calc(100vh-64px)] bg-black flex flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0 bg-black z-0">
@@ -1497,6 +1549,8 @@ const renderTrainerDashboard = () => {
           <p className="text-gray-500 text-sm">أهلاً بك في ركن الأبطال</p>
         </div>
 
+        
+
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
             <label className="block text-xs font-bold text-gray-500 pr-1 uppercase tracking-widest">
@@ -1547,7 +1601,6 @@ const renderTrainerDashboard = () => {
     </div>
   );
 
-  // ✅ renderAdminUsersPage مع الفلتر الجديد مصلح
   const renderAdminUsersPage = () => (
     <div className="container mx-auto px-4 py-8 min-h-screen">
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
@@ -1564,10 +1617,7 @@ const renderTrainerDashboard = () => {
       </div>
 
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden shadow-xl">
-        {/* ✅ شريط الفلاتر — 5 أعمدة */}
-        <div className="p-4 border-b border-zinc-800 grid grid-cols-1 md:grid-cols-5 gap-4 bg-zinc-950/50">
-
-          {/* 1. بحث */}
+        <div className="p-4 border-b border-zinc-800 grid grid-cols-1 md:grid-cols-4 gap-4 bg-zinc-950/50">
           <div className="relative md:col-span-2">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
             <input 
@@ -1578,23 +1628,21 @@ const renderTrainerDashboard = () => {
               className="w-full bg-black border border-zinc-700 rounded-lg pr-10 pl-4 py-2.5 text-white focus:ring-1 focus:ring-royal-500 outline-none"
             />
           </div>
-
           {/* 2. فلتر الأدوار */}
           <div className="relative">
-            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-            <select 
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as any)}
-              className="w-full bg-black border border-zinc-700 rounded-lg pr-10 pl-4 py-2.5 text-white focus:ring-1 focus:ring-royal-500 outline-none appearance-none"
-            >
-              <option value="all">جميع الأدوار</option>
-              <option value={UserRole.MEMBER}>مشتركين</option>
-              <option value={UserRole.TRAINER}>مدربين</option>
-              <option value={UserRole.ADMIN}>إداريين</option>
-            </select>
-            <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
+             <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+             <select 
+               value={roleFilter}
+               onChange={(e) => setRoleFilter(e.target.value as any)}
+               className="w-full bg-black border border-zinc-700 rounded-lg pr-10 pl-4 py-2.5 text-white focus:ring-1 focus:ring-royal-500 outline-none appearance-none"
+             >
+               <option value="all">جميع الأدوار</option>
+               <option value={UserRole.MEMBER}>مشتركين</option>
+               <option value={UserRole.TRAINER}>مدربين</option>
+               <option value={UserRole.ADMIN}>إداريين</option>
+             </select>
+             <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
           </div>
-
           {/* 3. ✅ فلتر حالة الاشتراك — جديد */}
           <div className="relative">
             <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
@@ -1609,7 +1657,8 @@ const renderTrainerDashboard = () => {
             </select>
             <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
           </div>
-{/* فلتر المدرب */}
+          
+          {/* فلتر المدرب */}
 <div className="relative">
   <Users className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
   <select
@@ -1627,7 +1676,7 @@ const renderTrainerDashboard = () => {
   </select>
   <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
 </div>
-          {/* 4. فلتر حالة الجدول */}
+{/* 4. فلتر حالة الجدول */}
           <div className="relative">
             <Activity className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
             <select 
@@ -1644,7 +1693,6 @@ const renderTrainerDashboard = () => {
             </select>
             <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={16} />
           </div>
-
         </div>
 
         <div className="overflow-x-auto">
@@ -1661,12 +1709,13 @@ const renderTrainerDashboard = () => {
             </thead>
             <tbody className="divide-y divide-zinc-800">
               {getFilteredUsers().map(user => {
-                const isExpired = user.role === UserRole.MEMBER && isSubscriptionExpired(user.subscriptionEndDate);
-                const trainerObj = user.role === UserRole.MEMBER
-                  ? users.find(u => String(u.id) === String(user.trainerId))
-                  : null;
+                 const isExpired = user.role === UserRole.MEMBER && isSubscriptionExpired(user.subscriptionEndDate);
+const trainerObj =
+  user.role === UserRole.MEMBER
+    ? users.find(u => String(u.id) === String(user.trainerId))
+    : null;
                  
-                return (
+                 return (
                   <tr key={user.id} className="hover:bg-zinc-800/30 transition-colors group">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -1690,61 +1739,45 @@ const renderTrainerDashboard = () => {
                     <td className="p-4 text-gray-300 dir-ltr font-mono">{user.phone}</td>
                     <td className="p-4 text-center">
                       {user.role === UserRole.MEMBER ? (
-                        <div className="flex flex-col items-center gap-1">
-                          {isExpired ? (
-                            <span className="text-red-500 flex items-center gap-1 text-[10px] font-bold bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50">
-                              <AlertCircle size={10} /> منتهي
-                            </span>
-                          ) : (
-                            <span className="text-green-500 flex items-center gap-1 text-[10px] font-bold bg-green-950/30 px-2 py-0.5 rounded border border-green-900/50">
-                              <CheckCircle size={10} /> نشط
-                            </span>
-                          )}
-                          <span className="text-[10px] text-gray-500 font-mono">
-                            {user.subscriptionEndDate ? new Date(user.subscriptionEndDate).toLocaleDateString() : '-'}
-                          </span>
-                        </div>
+                         <div className="flex flex-col items-center gap-1">
+                             {isExpired ? (
+                               <span className="text-red-500 flex items-center gap-1 text-[10px] font-bold bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50">
+                                 <AlertCircle size={10} /> منتهي
+                               </span>
+                             ) : (
+                               <span className="text-green-500 flex items-center gap-1 text-[10px] font-bold bg-green-950/30 px-2 py-0.5 rounded border border-red-900/50">
+                                 <CheckCircle size={10} /> نشط
+                               </span>
+                             )}
+                             <span className="text-[10px] text-gray-500 font-mono">
+                               {user.subscriptionEndDate ? new Date(user.subscriptionEndDate).toLocaleDateString() : '-'}
+                             </span>
+                         </div>
                       ) : '-'}
                     </td>
                     <td className="p-4 text-center">
-                      {user.role === UserRole.MEMBER ? renderStatusBadge(user) : '-'}
+                       {user.role === UserRole.MEMBER ? renderStatusBadge(user) : '-'}
                     </td>
                     <td className="p-4 text-center">
-                      {user.role === UserRole.MEMBER ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="text-xs text-gray-300">{trainerObj?.name || '-'}</span>
-                          {user.trainerId && (
-                            <button 
-                              onClick={() => openChat(user.trainerId!)}
-                              className="p-1.5 bg-royal-600/20 hover:bg-royal-600 text-royal-500 hover:text-white rounded transition-colors"
-                              title="مراسلة مدرب المشترك"
-                            >
-                              <MessageSquare size={12} />
-                            </button>
-                          )}
-                        </div>
-                      ) : '-'}
+                       {user.role === UserRole.MEMBER ? (
+                         <div className="flex items-center justify-center gap-2">
+                           <span className="text-xs text-gray-300">{trainerObj?.name || '-'}</span>
+                           
+                         </div>
+                       ) : '-'}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {user.role === UserRole.TRAINER && (
-                          <button 
-                            onClick={() => openChat(user.id)}
-                            className="p-2 bg-royal-600/20 hover:bg-royal-600 text-royal-500 hover:text-white rounded-lg transition-colors"
-                            title="تواصل مع المدرب"
-                          >
-                            <MessageSquare size={16} />
-                          </button>
-                        )}
-                        {user.role === UserRole.MEMBER && isExpired && (
-                          <button 
-                            onClick={() => sendWhatsAppNotification(user)}
-                            className="p-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors"
-                            title="إرسال تذكير تجديد"
-                          >
-                            <Share2 size={16} />
-                          </button>
-                        )}
+                         
+                         {user.role === UserRole.MEMBER && isExpired && (
+                           <button 
+                             onClick={() => sendWhatsAppNotification(user)}
+                             className="p-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors"
+                             title="إرسال تذكير تجديد"
+                           >
+                             <Share2 size={16} />
+                           </button>
+                         )}
                         <button
                           onClick={() => {
                             setCurrentPage('dashboard'); 
@@ -1755,17 +1788,19 @@ const renderTrainerDashboard = () => {
                         >
                           <Edit size={16} />
                         </button>
-                        <button
+
+
+                         <button
                           onClick={() => handleDeleteUser(user.id)}
                           className="p-2 bg-zinc-800 hover:bg-red-900/30 text-red-400 rounded-lg transition-colors"
                         >
                           <Trash2 size={16} />
                         </button>
+
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+              );})}
             </tbody>
           </table>
         </div>
@@ -1779,10 +1814,10 @@ const renderTrainerDashboard = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         {auth.user.role === UserRole.TRAINER && (
-          <div className="w-full">
-            {renderTrainerDashboard()}
-          </div>
-        )}
+        <div className="w-full">
+          {renderTrainerDashboard()}
+        </div>
+      )}
         <div className="flex flex-col md:flex-row gap-8">
           <div className="w-full md:w-1/4">
             <div className="bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 p-6 text-center sticky top-24 relative group">
@@ -1818,19 +1853,17 @@ const renderTrainerDashboard = () => {
               )}
 
               <div className="mt-6 pt-6 border-t border-zinc-800 text-right space-y-3">
-  
-  {/* رقم العضوية */}
-  <div className="flex items-center justify-between text-sm text-gray-400">
-    <span className="font-mono font-bold text-white">#ROY-{String(auth.user.id).padStart(4, '0')}</span>
-    <span>رقم العضوية</span>
-  </div>
+                <div className="flex items-center justify-between text-sm text-gray-400">
+                <span className="font-mono font-bold text-white">#ROY-{String(auth.user.id).padStart(4, '0')}</span>
+                <span>رقم العضوية</span>
+              </div>
+{auth.user.role === UserRole.MEMBER && (
 
-  {auth.user.role === UserRole.MEMBER && (
-    <>
+                <>
       {/* اسم المدرب */}
       <div className="flex items-center justify-between text-sm text-gray-400">
         <span className="font-bold text-white">
-          {getTrainerName(auth.user.trainerId)}
+          {getTrainerName(users.find(u => u.id === auth.user.id)?.trainerId)}
         </span>
         <span>المدرب</span>
       </div>
@@ -1838,12 +1871,12 @@ const renderTrainerDashboard = () => {
       {/* تاريخ انتهاء الاشتراك */}
       <div className="flex items-center justify-between text-sm text-gray-400">
         <span className={`font-mono font-bold ${
-          isSubscriptionExpired(auth.user.subscriptionEndDate)
+          isSubscriptionExpired(users.find(u => u.id === auth.user.id)?.subscriptionEndDate)
             ? 'text-red-400'
             : 'text-green-400'
         }`}>
-          {auth.user.subscriptionEndDate
-            ? new Date(auth.user.subscriptionEndDate).toLocaleDateString('ar-EG')
+          {users.find(u => u.id === auth.user.id)?.subscriptionEndDate
+            ? new Date(users.find(u => u.id === auth.user.id)!.subscriptionEndDate!).toLocaleDateString('ar-EG')
             : '—'}
         </span>
         <span>انتهاء الاشتراك</span>
@@ -1854,28 +1887,9 @@ const renderTrainerDashboard = () => {
         <div>{renderStatusBadge(auth.user)}</div>
         <span>حالة الجدول</span>
       </div>
-    </>
-  )}
-
-</div>
-            </div>
-            
-            
-
-            {auth.user.role === UserRole.TRAINER && (
-              <div className="mt-4">
-                 <button
-                   onClick={() => {
-                     const admin = users.find(u => u.role === UserRole.ADMIN);
-                     if (admin) openChat(admin.id);
-                   }}
-                   className="w-full bg-zinc-800 hover:bg-zinc-700 text-white p-4 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg transition-transform hover:scale-105 border border-zinc-800"
-                 >
-                   <Lock size={20} className="text-royal-500" />
-                   تواصل مع الإدارة
-                 </button>
+    </>  )}
               </div>
-            )}
+            </div>
           </div>
 
           <div className="w-full md:w-3/4 space-y-6">
@@ -1941,7 +1955,6 @@ const renderTrainerDashboard = () => {
                       </button>
                   </div>
                 </div>
-
                 <button
                   onClick={() => setCurrentPage('admin-nutrition-templates')}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-4 rounded-xl font-bold flex items-center justify-center gap-3 shadow-lg transition-all"
@@ -1954,12 +1967,15 @@ const renderTrainerDashboard = () => {
                 >
                   💪 إدارة مكتبة التمارين
                 </button>
+
+                
                 <button
                   onClick={() => setCurrentPage('admin-challenges')}
                   className="w-full bg-purple-600 hover:bg-purple-500 text-white p-4 rounded-xl font-bold"
                 >
                   🏆 إدارة التحديات
                 </button>
+                
                 <button
                   onClick={() => setCurrentPage('admin-analytics')}
                   className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white p-4 rounded-xl font-bold shadow-lg transition-all"
@@ -1969,138 +1985,152 @@ const renderTrainerDashboard = () => {
               </div>
             )}
 
-            {auth.user.role === UserRole.MEMBER && (
-              <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-6">
-                    <div 
-                      onClick={() => setCurrentPage('member-schedule')}
-                      className="bg-gradient-to-br from-royal-900 to-black border border-royal-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden cursor-pointer hover:shadow-royal-900/40 hover:scale-[1.01] transition-all group"
-                    >
-                      <div className="absolute top-0 right-0 p-4 opacity-10">
-                        <Dumbbell size={100} />
-                      </div>
-                      <h3 className="font-bold text-lg mb-4 text-royal-500 flex items-center gap-2">
-                        <Calendar className="w-5 h-5" />
-                        جدول التمارين اليومي
-                      </h3>
-                      {schedules[String(auth.user.id)] ? (
-                        <div className="space-y-3 relative z-10">
-                          {schedules[String(auth.user.id)]
-                            ?.text.split('\n')
-                            .slice(0, 3)
-                            .map((line, idx) => (
-                              <div key={idx} className="flex items-start gap-3 bg-black/40 p-3 rounded-lg border border-white/5">
-                                <CheckCircle size={18} className="text-royal-500 mt-0.5 flex-shrink-0" />
-                                <span className="text-sm text-gray-200 line-clamp-1">{line}</span>
-                              </div>
-                            ))}
-                          {schedules[String(auth.user.id)]?.text.split('\n').length > 3 && (
-                            <p className="text-xs text-center text-royal-400 font-bold mt-2">
-                              + {schedules[String(auth.user.id)]?.text.split('\n').length - 3} تمارين إضافية... اضغط للعرض
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-gray-400 bg-black/20 rounded-lg border border-dashed border-zinc-700">
-                          <p>لم يقم المدرب بتحديد جدول لك بعد.</p>
-                        </div>
-                      )}
-                      <div className="mt-6 pt-4 border-t border-white/10 text-xs text-gray-400 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <span>المدرب: {getTrainerName(auth.user.trainerId)}</span>
-                          {auth.user.trainerId && (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); openChat(auth.user!.trainerId!); }}
-                              className="p-1.5 bg-royal-600/20 text-royal-500 rounded hover:bg-royal-600 hover:text-white transition-colors"
-                              title="تحدث مع مدربك"
-                            >
-                              <MessageSquare size={12} />
-                            </button>
-                          )}
-                        </div>
-                        <span className="bg-zinc-800 px-2 py-0.5 rounded text-[10px]">عرض الجدول الكامل</span>
-                      </div>
-                    </div>
 
-                    <div className="bg-emerald-900/10 border border-emerald-900/30 rounded-xl overflow-hidden">
-                      <div className="p-4 bg-emerald-900/20 border-b border-emerald-900/40 flex items-center justify-between">
-                        <h3 className="text-xl font-bold text-emerald-300 flex items-center gap-2">
-                          <Utensils size={20} />
-                          جدول التغذية اليومي
-                        </h3>
-                        <span className="bg-black/50 border border-emerald-900/30 text-emerald-300 text-sm px-3 py-1.5 rounded font-bold">
-                          {(() => {
-                            const template = getSafeTemplate(nutritionPlans[String(auth.user?.id)]);
-                            return template ? template.name : 'جاري التحميل...';
-                          })()}
-                        </span>
-                      </div>
-
-                      <div className="p-4 space-y-3">
-                        {(() => {
-                          const template = getSafeTemplate(nutritionPlans[String(auth.user?.id)]);
-
-                          if (!template) {
-                            return (
-                              <div className="text-center text-gray-400 py-20">
-                                ⏳ جاري تحميل خطة التغذية...
-                              </div>
-                            );
-                          }
-
-                          return template.meals.slice(0, 3).map(meal => (
-                            <div
-                              key={meal.id}
-                              className="flex items-start gap-3 p-3 bg-black/40 rounded-lg border border-emerald-900/20"
-                            >
-                              <CheckCircle className="text-emerald-500 mt-0.5" size={18} />
-                              <div>
-                                <p className="font-bold text-white">{meal.name}</p>
-                                <p className="text-xs text-gray-400">{meal.calories} سعرة حرارية</p>
-                              </div>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-
-                      <div className="p-3 bg-black/30 border-t border-emerald-900/20 text-right text-xs text-gray-500">
-                        <div className="flex justify-between items-center">
-                          <span>- المدرب: {getTrainerName(auth.user?.trainerId)}</span>
-                          <button
-                            onClick={() => setCurrentPage('member-nutrition')}
-                            className="text-emerald-500 hover:text-emerald-300 underline"
-                          >
-                            عرض الجدول الكامل
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+           {auth.user.role === UserRole.MEMBER && (
+  <div className="space-y-6">
+    {/* 👉 Main Content Grid: Schedule + Activity | AI Coach */}
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className="space-y-6">
+        {/* Workout Schedule Card */}
+        <div 
+          onClick={() => setCurrentPage('member-schedule')}
+          className="bg-gradient-to-br from-royal-900 to-black border border-royal-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden cursor-pointer hover:shadow-royal-900/40 hover:scale-[1.01] transition-all group"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Dumbbell size={100} />
+          </div>
+          <h3 className="font-bold text-lg mb-4 text-royal-500 flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            جدول التمارين اليومي
+          </h3>
+          {schedules[String(auth.user.id)] ? (
+            <div className="space-y-3 relative z-10">
+              {schedules[String(auth.user.id)]
+                ?.text.split('\n')
+                .slice(0, 3)
+                .map((line, idx) => (
+                  <div key={idx} className="flex items-start gap-3 bg-black/40 p-3 rounded-lg border border-white/5">
+                    <CheckCircle size={18} className="text-royal-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-gray-200 line-clamp-1">{line}</span>
                   </div>
-
-                  <AICoach />
-                </div>
-
-                <button
-                  onClick={() => setCurrentPage('challenges')}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white p-4 rounded-xl flex items-center justify-center gap-3 font-bold shadow-lg transition-all"
+                ))}
+              {schedules[String(auth.user.id)]?.text.split('\n').length > 3 && (
+                <p className="text-xs text-center text-royal-400 font-bold mt-2">
+                  + {schedules[String(auth.user.id)]?.text.split('\n').length - 3} تمارين إضافية... اضغط للعرض
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400 bg-black/20 rounded-lg border border-dashed border-zinc-700">
+              <p>لم يقم المدرب بتحديد جدول لك بعد.</p>
+            </div>
+          )}
+          <div className="mt-6 pt-4 border-t border-white/10 text-xs text-gray-400 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span>المدرب: {getTrainerName(auth.user.trainerId)}</span>
+              {auth.user.trainerId && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); openChat(auth.user!.trainerId!); }}
+                  className="p-1.5 bg-royal-600/20 text-royal-500 rounded hover:bg-royal-600 hover:text-white transition-colors"
+                  title="تحدث مع مدربك"
                 >
-                  🏆 التحديات والإنجازات
+                  <MessageSquare size={12} />
                 </button>
-
-                <button
-                  onClick={() => setCurrentPage('weekly-integrated')}
-                  className="w-full bg-gradient-to-r from-royal-600 to-emerald-600 hover:from-royal-500 hover:to-emerald-500 text-white p-4 rounded-xl flex items-center justify-center gap-3 font-bold shadow-lg transition-all"
-                >
-                  <Calendar size={20} />
-                  الأسبوع المتكامل (تمارين + تغذية)
-                </button>
-              </div>
-            )}
+              )}
+            </div>
+            <span className="bg-zinc-800 px-2 py-0.5 rounded text-[10px]">عرض الجدول الكامل</span>
           </div>
         </div>
 
-        {/* Profile Modal */}
+        {/* Weekly Activity Chart */}
+        {/* ✅ جدول التغذية — نفس نمط الصورة المُرفقة */}
+        <div className="bg-emerald-900/10 border border-emerald-900/30 rounded-xl overflow-hidden">
+          <div className="p-4 bg-emerald-900/20 border-b border-emerald-900/40 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-emerald-300 flex items-center gap-2">
+              <Utensils size={20} />
+              جدول التغذية اليومي
+            </h3>
+            <span className="bg-black/50 border border-emerald-900/30 text-emerald-300 text-sm px-3 py-1.5 rounded font-bold">
+              {(() => {
+                const template = getSafeTemplate(
+                  nutritionPlans[String(auth.user?.id)]
+                );
+                return template ? template.name : 'جاري التحميل...';
+              })()}
+            </span>
+
+
+          </div>
+
+          <div className="p-4 space-y-3">
+            {(() => {
+              const template = getSafeTemplate(
+              nutritionPlans[String(auth.user?.id)]
+              );
+
+              if (!template) {
+                return (
+                  <div className="text-center text-gray-400 py-20">
+                    ⏳ جاري تحميل خطة التغذية...
+                  </div>
+                );
+              }
+
+
+              return template.meals.slice(0, 3).map(meal => (
+                <div
+                  key={meal.id}
+                  className="flex items-start gap-3 p-3 bg-black/40 rounded-lg border border-emerald-900/20"
+                >
+                  <CheckCircle className="text-emerald-500 mt-0.5" size={18} />
+                  <div>
+                    <p className="font-bold text-white">{meal.name}</p>
+                    <p className="text-xs text-gray-400">{meal.calories} سعرة حرارية</p>
+                  </div>
+                </div>
+              ));
+            })()}
+
+          </div>
+
+              <div className="p-3 bg-black/30 border-t border-emerald-900/20 text-right text-xs text-gray-500">
+                <div className="flex justify-between items-center">
+                  <span>- المدرب: {getTrainerName(auth.user?.trainerId)}</span>
+                  <button
+                    onClick={() => setCurrentPage('member-nutrition')}
+                    className="text-emerald-500 hover:text-emerald-300 underline"
+                  >
+                    عرض الجدول الكامل
+                  </button>
+                </div>
+              </div>
+            </div>
+              </div>
+
+              {/* AI Coach */}
+            <AICoach />
+            <button
+              onClick={() => setCurrentPage('challenges')}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white p-4 rounded-xl flex items-center justify-center gap-3 font-bold shadow-lg transition-all"
+            >
+              🏆 التحديات والإنجازات
+            </button>
+
+            </div>
+
+            {/* 👇 PERFECT SPOT: Nutrition Button (Full Width Below Everything) */}
+            <button
+              onClick={() => setCurrentPage('weekly-integrated')}
+              className="w-full bg-gradient-to-r from-royal-600 to-emerald-600 hover:from-royal-500 hover:to-emerald-500 text-white p-4 rounded-xl flex items-center justify-center gap-3 font-bold shadow-lg transition-all"
+            >
+              <Calendar size={20} />
+              الأسبوع المتكامل (تمارين + تغذية)
+            </button>
+          </div>
+        )}
+          </div>
+        </div>
+
         {isProfileModalOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
              <div className="bg-zinc-900 w-full max-w-md p-8 rounded-2xl border border-zinc-800 shadow-2xl animate-in zoom-in duration-200">
@@ -2125,7 +2155,6 @@ const renderTrainerDashboard = () => {
           </div>
         )}
 
-        {/* Add User Modal */}
         {isAddUserModalOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
              <div className="bg-zinc-900 w-full max-w-lg p-8 rounded-2xl border border-zinc-800 shadow-2xl animate-in zoom-in duration-200 overflow-y-auto max-h-[90vh]">
@@ -2148,7 +2177,8 @@ const renderTrainerDashboard = () => {
                             ...newUser,
                             trainerId: e.target.value ? Number(e.target.value) : null
                           })
-                        }>
+                        }
+                        >
                           <option value="">اختيار المدرب</option>
                           {users.filter(u => u.role === UserRole.TRAINER).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
@@ -2161,6 +2191,7 @@ const renderTrainerDashboard = () => {
                           <option value="12">اشتراك سنة</option>
                           <option value="custom">تاريخ مخصص</option>
                         </select>
+                        {/* ✅ Custom date picker — only show if "custom" is selected */}
                         {subscriptionDuration === 'custom' && (
                           <div className="space-y-2">
                             <label className="block text-xs font-bold text-gray-500 pr-1">
@@ -2171,7 +2202,7 @@ const renderTrainerDashboard = () => {
                               value={customEndDate}
                               onChange={(e) => setCustomEndDate(e.target.value)}
                               className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white focus:ring-1 focus:ring-royal-500 outline-none"
-                              min={new Date().toISOString().split('T')[0]}
+                              min={new Date().toISOString().split('T')[0]} // Prevent past dates
                             />
                           </div>
                         )}
@@ -2187,7 +2218,6 @@ const renderTrainerDashboard = () => {
           </div>
         )}
 
-        {/* Chat Modal */}
         {isChatOpen && activeChatUserId && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
              <div className="bg-zinc-900 w-full max-w-lg h-[600px] rounded-2xl border border-zinc-800 shadow-2xl flex flex-col animate-in zoom-in duration-200">
@@ -2211,32 +2241,39 @@ const renderTrainerDashboard = () => {
                </div>
                
                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/50 custom-scrollbar">
-                 {chatMessages.length > 0 ? (
-                   chatMessages.map(msg => {
-                     const isMe = msg.senderId === auth.user?.id;
-                     return (
-                       <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                         <div
-                           className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                             isMe
-                               ? 'bg-royal-600 text-white rounded-bl-none'
-                               : 'bg-zinc-800 text-gray-200 rounded-br-none'
-                           }`}
-                         >
-                           <p>{msg.text}</p>
-                           <p className={`text-[10px] mt-1 text-right ${isMe ? 'text-royal-200' : 'text-gray-500'}`}>
-                             {msg.timestamp instanceof Date ? msg.timestamp.toLocaleTimeString() : ''}
-                           </p>
-                         </div>
-                       </div>
-                     );
-                   })
-                 ) : (
-                   <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-2">
-                     <MessageSquare size={40} className="opacity-20" />
-                     <p>لا توجد رسائل سابقة. ابدأ المحادثة الآن!</p>
-                   </div>
-                 )}
+             {chatMessages.length > 0 ? (
+                  chatMessages.map(msg => {
+                    const isMe = msg.senderId === auth.user?.id;
+                    return (
+                      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                          className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+                            isMe
+                              ? 'bg-royal-600 text-white rounded-bl-none'
+                              : 'bg-zinc-800 text-gray-200 rounded-br-none'
+                          }`}
+                        >
+                          <p>{msg.text}</p>
+                          <p
+                            className={`text-[10px] mt-1 text-right ${
+                              isMe ? 'text-royal-200' : 'text-gray-500'
+                            }`}
+                          >
+                            {msg.timestamp instanceof Date
+                              ? msg.timestamp.toLocaleTimeString()
+                              : ''}
+                          </p>
+                        </div>
+                      </div>
+                    );
+
+                  })
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-2">
+                    <MessageSquare size={40} className="opacity-20" />
+                    <p>لا توجد رسائل سابقة. ابدأ المحادثة الآن!</p>
+                  </div>
+                )}
                  <div ref={chatEndRef}></div>
                </div>
 
@@ -2257,92 +2294,108 @@ const renderTrainerDashboard = () => {
              </div>
           </div>
         )}
-
-        {/* Edit User Modal */}
         {isEditUserModalOpen && editUser && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-zinc-900 w-full max-w-lg p-6 rounded-2xl border border-zinc-800 shadow-2xl">
-              <h3 className="text-xl font-bold text-white mb-6">تعديل المستخدم</h3>
-              <div className="space-y-4">
-                <input
-                  className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
-                  placeholder="الاسم"
-                  value={editUser.name}
-                  onChange={e => setEditUser({ ...editUser, name: e.target.value })}
-                />
-                <input
-                  className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
-                  placeholder="رقم الهاتف"
-                  value={editUser.phone}
-                  onChange={e => setEditUser({ ...editUser, phone: e.target.value })}
-                />
-                <select
-                  className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
-                  value={editUser.role}
-                  onChange={e => setEditUser({ ...editUser, role: e.target.value })}
-                >
-                  <option value="member">مشترك</option>
-                  <option value="trainer">مدرب</option>
-                  <option value="admin">مدير</option>
-                </select>
-                {editUser.role === 'member' && (
-                  <>
-                    <select
-                      className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
-                      value={editUser.trainerId || ''}
-                      onChange={e => setEditUser({ ...editUser, trainerId: e.target.value })}
-                    >
-                      <option value="">بدون مدرب</option>
-                      {users.filter(u => u.role === 'trainer').map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="date"
-                      className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
-                      value={
-                        editUser.subscriptionEndDate
-                          ? editUser.subscriptionEndDate.split(' ')[0]
-                          : ''
-                      }
-                      onChange={e => setEditUser({ ...editUser, subscriptionEndDate: e.target.value })}
-                    />
-                  </>
-                )}
-              </div>
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-zinc-900 w-full max-w-lg p-6 rounded-2xl border border-zinc-800 shadow-2xl">
+      
+      <h3 className="text-xl font-bold text-white mb-6">
+        تعديل المستخدم
+      </h3>
 
-              {auth.user?.role === UserRole.ADMIN && (
-                <div className="mt-4">
-                  <label className="block text-xs text-gray-400 mb-1">
-                    كلمة مرور جديدة (اختياري)
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="اتركه فارغاً إذا لا تريد التغيير"
-                    className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
-                    value={adminNewPassword}
-                    onChange={e => setAdminNewPassword(e.target.value)}
-                  />
-                </div>
-              )}
+      <div className="space-y-4">
+        <input
+          className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
+          placeholder="الاسم"
+          value={editUser.name}
+          onChange={e => setEditUser({ ...editUser, name: e.target.value })}
+        />
 
-              <div className="flex gap-2 mt-8">
-                <button
-                  onClick={handleSaveEditUser}
-                  className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold"
-                >
-                  حفظ التغييرات
-                </button>
-                <button
-                  onClick={() => setIsEditUserModalOpen(false)}
-                  className="px-6 bg-zinc-800 text-gray-400 py-3 rounded-lg"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </div>
-          </div>
+        <input
+          className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
+          placeholder="رقم الهاتف"
+          value={editUser.phone}
+          onChange={e => setEditUser({ ...editUser, phone: e.target.value })}
+        />
+
+        <select
+          className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
+          value={editUser.role}
+          onChange={e => setEditUser({ ...editUser, role: e.target.value })}
+        >
+          <option value="member">مشترك</option>
+          <option value="trainer">مدرب</option>
+          <option value="admin">مدير</option>
+        </select>
+
+        {editUser.role === 'member' && (
+          <>
+            <select
+              className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
+              value={editUser.trainerId || ''}
+              onChange={e =>
+                setEditUser({ ...editUser, trainerId: e.target.value })
+              }
+            >
+              <option value="">بدون مدرب</option>
+              {users.filter(u => u.role === 'trainer').map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="date"
+              className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
+              value={
+                editUser.subscriptionEndDate
+                  ? editUser.subscriptionEndDate.split(' ')[0]
+                  : ''
+              }
+              onChange={e =>
+                setEditUser({
+                  ...editUser,
+                  subscriptionEndDate: e.target.value
+                })
+              }
+
+            />
+          </>
         )}
+      </div>
+{auth.user?.role === UserRole.ADMIN && (
+  <div className="mt-4">
+    <label className="block text-xs text-gray-400 mb-1">
+      كلمة مرور جديدة (اختياري)
+    </label>
+    <input
+      type="password"
+      placeholder="اتركه فارغاً إذا لا تريد التغيير"
+      className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white"
+      value={adminNewPassword}
+      onChange={e => setAdminNewPassword(e.target.value)}
+    />
+  </div>
+)}
+
+      <div className="flex gap-2 mt-8">
+              <button
+        onClick={handleSaveEditUser}
+        className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold"
+      >
+        حفظ التغييرات
+      </button>
+
+        <button
+          onClick={() => setIsEditUserModalOpen(false)}
+          className="px-6 bg-zinc-800 text-gray-400 py-3 rounded-lg"
+        >
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       </div>
     );
@@ -2355,40 +2408,38 @@ const renderTrainerDashboard = () => {
       currentPage={currentPage}
       onNavigate={setCurrentPage}
     >
-      {currentPage === 'home' && <HomePage />}
-      {currentPage === 'login' && renderLoginPage()}
-      {currentPage === 'dashboard' && renderDashboard()}
-      {currentPage === 'admin-users' && renderAdminUsersPage()}
-      {currentPage === 'trainer-schedule' && renderScheduleEditorPage()}
-      {currentPage === 'member-schedule' && renderMemberSchedulePage()}
-      {currentPage === 'member-nutrition' && auth.user && (
-        <MemberNutritionPage
-          auth={auth}
-          nutritionPlans={nutritionPlans}
-          setNutritionPlans={setNutritionPlans}
-        />
-      )}
-      {currentPage === 'trainer-nutrition' && renderTrainerNutritionPage()}
-      {currentPage === 'weekly-integrated' && renderWeeklyIntegratedView()}
-      {currentPage === 'challenges' && auth.user && (
-        <ChallengesModule currentUser={auth.user} />
-      )}
-      {currentPage === 'admin-challenges' && auth.user?.role === UserRole.ADMIN && (
-        <ChallengesModule currentUser={auth.user} />
-      )}
-      {currentPage === 'admin-nutrition-templates' && auth.user?.role === UserRole.ADMIN && (
-        <AdminNutritionTemplates
-          templates={nutritionTemplates}
-          setTemplates={setNutritionTemplates}
-          onDeleteTemplate={handleDeleteNutritionTemplate}
-        />
-      )}
-      {currentPage === 'admin-analytics' && auth.user?.role === UserRole.ADMIN && (
-        <AnalyticsDashboard />
-      )}
-      {currentPage === 'admin-exercises' && auth.user?.role === UserRole.ADMIN && (
-        <AdminExercisesManager />
-      )}
-    </Layout>
+    {currentPage === 'home' && <HomePage />}
+    {currentPage === 'login' && renderLoginPage()}
+    {currentPage === 'dashboard' && renderDashboard()}
+    {currentPage === 'admin-users' && renderAdminUsersPage()}
+    {currentPage === 'trainer-schedule' && renderScheduleEditorPage()}
+    {currentPage === 'member-schedule' && renderMemberSchedulePage()}
+    {currentPage === 'member-nutrition' && auth.user && (
+      <MemberNutritionPage
+        auth={auth}
+        nutritionPlans={nutritionPlans}
+        setNutritionPlans={setNutritionPlans}
+      />
+    )}
+    {currentPage === 'trainer-nutrition' && renderTrainerNutritionPage()}
+    {currentPage === 'weekly-integrated' && renderWeeklyIntegratedView()}
+    {currentPage === 'challenges' && auth.user && (<ChallengesModule currentUser={auth.user} />)}
+    {currentPage === 'admin-challenges' && auth.user?.role === UserRole.ADMIN && (<ChallengesModule currentUser={auth.user} />)}
+    {currentPage === 'admin-nutrition-templates' && auth.user?.role === UserRole.ADMIN && (
+      <AdminNutritionTemplates
+        templates={nutritionTemplates}
+        setTemplates={setNutritionTemplates}
+        onDeleteTemplate={handleDeleteNutritionTemplate}
+
+      />
+    )}
+    {currentPage === 'admin-analytics' && auth.user?.role === UserRole.ADMIN && (
+      <AnalyticsDashboard />
+    )}
+  {currentPage === 'admin-exercises' && auth.user?.role === UserRole.ADMIN && (
+    <AdminExercisesManager />
+  )}
+
+  </Layout>
   );
 }
